@@ -63,4 +63,5 @@ def make_raster_plot(N, spike_list):
     plt.xlabel('Time (ms)')
     plt.ylabel('Neuron Label')
     plt.title('Spike Timings')
+    plt.grid(True, axis='y')
     plt.plot()

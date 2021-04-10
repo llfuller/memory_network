@@ -15,6 +15,9 @@ def HH_many_coupled(state, t, *args):
     last_firing_times = args[4]
     E_syn = args[5]  # mV; arbitrarily decided
     spike_list = args[6]
+    use_STDP = args[7] # boolean controlling whether STDP adaptation occurs
+    tau_W = args[8] # STDP time scale
+    STDP_scaling = args[9]
     V, n, m, h = state[:N*4].reshape((4,N))  # state variables within a single neuron
     W = state[N*4:].reshape((N,N))  # synapse scaling factors
     # I_instr is Current added into cell by man-made instrument
@@ -25,8 +28,6 @@ def HH_many_coupled(state, t, *args):
         if (V[i]>40) and ((t-last_firing_times[i])>12):
             last_firing_times[i] = t
             spike_list[i].append(t)
-    # last_firing_times[V>80 and (t-last_firing_times)>12] = t
-    # print(last_firing_times)
     # Cell parameters
     C = 1  # Membrane capacitance; microFarads/cm^2
     # Shifted Nernst equilibrium potentials
@@ -62,15 +63,33 @@ def HH_many_coupled(state, t, *args):
 
 
     # Equations of motion for state variables (should be shape N)
-    # print(np.multiply(np.matmul(W,g_syn),(V-E_syn))[:4])
     dVdt = - 1.0/C * (g_k*(n**4)*(V-E_k) + g_Na*(m**3)*h*(V-E_Na) + g_L*(V-E_L) +
                       np.multiply(np.matmul(W,g_syn),(V-E_syn)) - I_instr_t)
     dndt = (n_inf - n)/tau_n
     dmdt = (m_inf - m)/tau_m
     dhdt = (h_inf - h)/tau_h
 
-    # Has shape (4*N)
-    dVnmhdt = np.array([dVdt, dndt, dmdt, dhdt]).flatten()
-    dSynapsesdt = np.zeros(W.shape).flatten() # no synapse adaptation
+    dVnmhdt = np.array([dVdt, dndt, dmdt, dhdt]).flatten() # Has shape (4*N) after flattening
+    dSynapsesdt_temp = np.zeros(W.shape) # initialize dSynapsesdt. Will not change if STDP not used next
+    if use_STDP:
+        # Implement adaptation by STDP
+        # STDP Method 1:
+        for i in range(N): # postsynaptic
+            if len(spike_list[i]) > 0 and (t-spike_list[i][-1]) < 3:
+                for j in range(N): # presynaptic
+                    if len(spike_list[j]) > 0 and (t-spike_list[j][-1]) < 3: # if both have spiked at all
+                        timing_difference = spike_list[i][-1] - spike_list[j][-1] # positive if pre spiked first
+                        dSynapsesdt_temp[i,j] = STDP_scaling * np.sign(timing_difference) \
+                                                * np.exp(-timing_difference/tau_W) # no synapse adaptation
+        # STDP Method 2. Faster alternative, but maybe not a good model of it:
+        # timing_difference = np.divide(1.0,(np.abs(np.subtract.outer(dVdt, dVdt))+1.0)) # only as good as it can get if neurons have few connections
+        # dSynapsesdt_temp = STDP_scaling*np.sign(timing_difference)*np.exp(-timing_difference/tau_W)
+        # dSynapsesdt_temp[W==0] = 0
+    dSynapsesdt = dSynapsesdt_temp.flatten()
+    # for i in range(N):  # postsynaptic
+    #     if len(spike_list[i])>0 and (t-spike_list[i,-1]) < 5:
+    #             for j in range(N): # presynaptic
+    #                 if len(spike_list[j])>0 and (t-spike_list[i,-1]) < 5:
+    #                     if
     dStatedt = np.concatenate((dVnmhdt, dSynapsesdt))
     return dStatedt
