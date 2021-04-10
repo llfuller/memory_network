@@ -10,7 +10,7 @@ N = 100
 # Timekeeping (units in milliseconds)
 dt = 0.02
 time_start = 0.0
-time_total = 40.0
+time_total = 20.0
 timesteps = int(float(time_total)/dt) # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 
@@ -43,4 +43,4 @@ sol = odeint(HH_many, state_initial_array.flatten(), times_array, args = (I_flat
 print("Program took "+str(time.time()-start_time)+" seconds to run.")
 
 
-plot_many_neurons(N, sol.reshape(timesteps, 4, N))
+plot_many_neurons(N, times_array, sol.reshape(timesteps, 4, N))
