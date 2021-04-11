@@ -36,7 +36,7 @@ def plot_many_neurons(N, times_array, sol):
         plt.xlabel('Time (ms)')
         plt.show()
 
-def plot_many_neurons_simultaneous(N, times_array, sol):
+def plot_many_neurons_simultaneous(N, times_array, sol, use_STDP):
     # sol has shape (timesteps, 4, N)
     plt.figure()
 
@@ -45,10 +45,9 @@ def plot_many_neurons_simultaneous(N, times_array, sol):
         plt.plot(times_array, sol[:, 0, i])
         plt.ylabel('Voltage (mV)')
         plt.xlabel('Time (ms)')
+    plt.savefig('plots/Voltages; STDP='+ str(use_STDP))
 
-    plt.show()
-
-def make_raster_plot(N, spike_list):
+def make_raster_plot(N, spike_list, use_STDP):
     # Makes raster plot of neuron spikes
     number_list = []
     spike_list_flattened = []
@@ -56,7 +55,6 @@ def make_raster_plot(N, spike_list):
         for a_time in spike_list[n]:
             number_list.append(n)
             spike_list_flattened.append(a_time)
-            print(a_time)
 
     plt.figure()
     plt.scatter(spike_list_flattened, number_list)
@@ -64,4 +62,4 @@ def make_raster_plot(N, spike_list):
     plt.ylabel('Neuron Label')
     plt.title('Spike Timings')
     plt.grid(True, axis='y')
-    plt.plot()
+    plt.savefig('plots/Raster; STDP='+ str(use_STDP))

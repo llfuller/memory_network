@@ -1,6 +1,7 @@
-from model_HH_many_coupled import HH_many_coupled
+from model_HH_many_coupled_last_spike import HH_many_coupled_last_spike
 from HH_plotting import plot_many_neurons_simultaneous
 from HH_plotting import make_raster_plot
+import externally_provided_currents as currents
 import numpy as np
 from scipy.integrate import odeint
 import time as time
@@ -11,6 +12,7 @@ from scipy import stats
 #
 # Runs N neurons and N*N synapses in parallel ( system with dimensions (4*N + N*N) )
 # Type of neuron: Hodgkin-Huxley
+#
 ########################################################################################################################
 
 np.random.seed(2021)
@@ -19,14 +21,14 @@ np.random.seed(2021)
 N = 30
 
 # STDP-related variables
-use_STDP = True # Control whether STDP is used to adapt synaptic weights or not
+use_STDP = False # Control whether STDP is used to adapt synaptic weights or not
 tau_W = 3 # ms
-STDP_scaling = 0.01
+STDP_scaling = 0.1
 
 # Timekeeping (units in milliseconds)
 dt = 0.01
 time_start = 0.0
-time_total = 20.0
+time_total = 1000.0
 timesteps = int(float(time_total)/dt) # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 
@@ -52,21 +54,6 @@ for n in range(N):
 
 # Noise: Standard deviation of noise in V,n,m,h initial conditions (keep below 0.4 to avoid m,n,h below 0 or above 1)
 state_random_std_dev_noise = 0.4
-
-# Currents
-def I_flat(N,t):
-    I_ext = 30*np.ones((N))
-    # if t<40:
-    #     I_ext = 30*np.ones((N))
-    # else:
-    #     I_ext = np.zeros((N))
-
-    # # Test. Uncomment to make sure the correct neurons (3 and 5) receive stimulus
-    # for i in range(N):
-    #     if i!=3 and i!=5:
-    #         I_ext[i] = -1
-
-    return I_ext
 
 # Initial conditions
 # For number N neurons, make all neurons same initial conditions (noise optional):
@@ -108,12 +95,14 @@ flattened_initial_states = np.concatenate((flattened_initial_Vnmh_states, flatte
 print("Running "+str(N)+" neurons for "+str(timesteps)+" timesteps of size "+str(dt))
 start_time = time.time()
 # sol will contain solutions to system and odeint will fill spike_list
-sol = odeint(HH_many_coupled, flattened_initial_states, times_array,
-             args = (I_flat, N, timesteps, times_array, last_firing_times, E_syn, spike_list,
+sol = odeint(HH_many_coupled_last_spike, flattened_initial_states, times_array,
+             args = (currents.I_flat, N, timesteps, times_array, last_firing_times, E_syn, spike_list,
                      use_STDP, tau_W, STDP_scaling))
 print("Program took "+str(time.time()-start_time)+" seconds to run.")
 sol_matrix_Vnmh_and_synapses = sol.reshape(timesteps, 4*N + N*N)
 sol_matrix_Vnmh_only = sol_matrix_Vnmh_and_synapses[:,:4*N]
+sol_matrix_synapses_only = sol_matrix_Vnmh_and_synapses[:,4*N:]
+print("Shape of sol_matrix_synapses_only: "+str(sol_matrix_synapses_only.shape))
 
 # Turn spike list into a saveable array
 most_spikes = 0
@@ -126,7 +115,9 @@ for n in range(N):
     for time_index in range(len(spike_list[n])):
         spike_list_array[n,time_index] = spike_list[n][time_index]
 np.savetxt('spike_list.txt',spike_list_array, fmt='%.3e')
-
+# dims(timesteps, N):
+np.savetxt('voltages/V-STDP='+str(use_STDP)+'.txt', sol_matrix_Vnmh_only.reshape(timesteps, 4, N)[:, 0, :], fmt='%.3e')
+np.savetxt('modified_weights/W-STDP='+str(use_STDP)+'.txt', sol_matrix_synapses_only[:, :], fmt='%.3e')
 make_raster_plot(N, spike_list, use_STDP)
 
 # Plot the active neurons

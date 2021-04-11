@@ -1,4 +1,4 @@
-from model_HH_many_coupled import HH_many_coupled
+from model_HH_many_coupled_optimize_W import HH_many_coupled_optimize_W
 from HH_plotting import plot_many_neurons_simultaneous
 from HH_plotting import make_raster_plot
 import numpy as np
@@ -11,6 +11,7 @@ from scipy import stats
 #
 # Runs N neurons and N*N synapses in parallel ( system with dimensions (4*N + N*N) )
 # Type of neuron: Hodgkin-Huxley
+# WARNING: I do not recommend using this specific code.
 ########################################################################################################################
 
 np.random.seed(2021)
@@ -19,9 +20,10 @@ np.random.seed(2021)
 N = 30
 
 # STDP-related variables
+# See web page http://www.scholarpedia.org/article/Spike-timing_dependent_plasticity
 use_STDP = True # Control whether STDP is used to adapt synaptic weights or not
 tau_W = 3 # ms
-STDP_scaling = 0.01
+STDP_scaling = 0.0000000005
 
 # Timekeeping (units in milliseconds)
 dt = 0.01
@@ -91,28 +93,27 @@ for n in range(N):
 # Synaptic connections have shape (N,N), from interval [-1,1)
 state_initial_synaptic = scipy.sparse.random(N,N, density = synapse_density,
                                              data_rvs=scipy.stats.uniform(loc=l_bound, scale=stats_scale).rvs)
+W_initial_ndarray = scipy.sparse.csr_matrix(state_initial_synaptic).toarray() # shape(N*N)
+
 last_firing_times = -1000*np.ones((N)) # large negative number so it isn't considered firing at beginning
 
 # List for spike times to be recorded to
 spike_list = [[] for i in range(N)] # Need N separate empty lists to record spike times to
 
-# Combine Vnmh and synaptic initial conditions into a single vector
+# Shape is (N*4)
 flattened_initial_Vnmh_states = state_initial_Vnmh_array.flatten() # shape(4*N)
-flattened_initial_synapse_states = (scipy.sparse.csr_matrix(state_initial_synaptic).toarray()).flatten() # shape(N*N)
-
-# Combined shape is (N*(4+N))
-flattened_initial_states = np.concatenate((flattened_initial_Vnmh_states, flattened_initial_synapse_states))
+flattened_initial_states = flattened_initial_Vnmh_states
 
 # Solve system
-# Sol has dimension (time, {state_vars + synapse vars} = {4 * N + N * N} )
+# Sol has dimension (time, {state_vars + synapse vars} = {4 * N} )
 print("Running "+str(N)+" neurons for "+str(timesteps)+" timesteps of size "+str(dt))
 start_time = time.time()
 # sol will contain solutions to system and odeint will fill spike_list
-sol = odeint(HH_many_coupled, flattened_initial_states, times_array,
+sol = odeint(HH_many_coupled_optimize_W, flattened_initial_states, times_array,
              args = (I_flat, N, timesteps, times_array, last_firing_times, E_syn, spike_list,
-                     use_STDP, tau_W, STDP_scaling))
+                     use_STDP, tau_W, STDP_scaling, W_initial_ndarray))
 print("Program took "+str(time.time()-start_time)+" seconds to run.")
-sol_matrix_Vnmh_and_synapses = sol.reshape(timesteps, 4*N + N*N)
+sol_matrix_Vnmh_and_synapses = sol.reshape(timesteps, 4*N)
 sol_matrix_Vnmh_only = sol_matrix_Vnmh_and_synapses[:,:4*N]
 
 # Turn spike list into a saveable array
