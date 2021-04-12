@@ -39,9 +39,9 @@ def FHN_many_coupled(state, t, *args):
     g_syn = g_syn_max*np.exp(-(t-last_firing_times)/tau_syn)
 
     # Equations of motion for state variables (should be shape N)
-    dVdt = V - (np.power(V,3))/3 - w + R*I_instr_t
+    dVdt = V - (np.power(V,3))/3 - w + np.multiply(np.matmul(A,g_syn),(V-E_syn)) + R*I_instr_t
     dwdt = 1.0/tau_w*(V + a - b*w)
-
+    print(t)
     dVnmhdt = np.array([dVdt, dwdt]).flatten() # Has shape (2*N) after flattening
     dSynapsesdt_temp = np.zeros(A.shape) # initialize dSynapsesdt. Will not change if STDP not used next
     if use_STDP:

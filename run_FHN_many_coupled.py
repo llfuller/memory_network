@@ -19,12 +19,12 @@ from scipy import stats
 np.random.seed(2021)
 
 # Number of neurons
-N = 30
+N = 100
 
 # Timekeeping (units in milliseconds)
 dt = 0.01
 time_start = 0.0
-time_total = 100.0
+time_total = 1000.0
 timesteps = int(float(time_total)/dt) # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 
@@ -61,7 +61,7 @@ for n in range(N):
                + (random_num>=ei_threshold)*E_syn_excitatory
 
 # STDP-related variables
-use_STDP = False # Control whether STDP is used to adapt synaptic weights or not
+use_STDP = True # Control whether STDP is used to adapt synaptic weights or not
 tau_W = 3 # ms
 STDP_scaling = 0.1
 
