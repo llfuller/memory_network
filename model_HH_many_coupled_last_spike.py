@@ -75,15 +75,10 @@ def HH_many_coupled_last_spike(state, t, *args):
         # Implement adaptation by STDP
         # STDP Method 1:
         timing_difference = np.subtract.outer(last_firing_times, last_firing_times) # positive if pre spiked first
-        # print(timing_difference)
-        # print("Shape is "+str(timing_difference.shape))
         dSynapsesdt_temp = STDP_scaling \
-                           * np.multiply(np.sign(timing_difference), np.exp(-np.abs(timing_difference)/tau_W)) \
-                           * np.exp(-np.abs(t-last_firing_times))
-        # print(dSynapsesdt_temp[:5])
-        # print(np.exp(-(t-last_firing_times)))
-        # print( np.multiply(np.sign(timing_difference), np.exp(-np.abs(timing_difference)/tau_W)))
+                           * np.multiply(np.sign(timing_difference), np.exp(-np.abs(timing_difference)/tau_W))
         dSynapsesdt_temp[W==0] = 0
+
     dSynapsesdt = dSynapsesdt_temp.flatten()
     # for i in range(N):  # postsynaptic
     #     if len(spike_list[i])>0 and (t-spike_list[i,-1]) < 5:
