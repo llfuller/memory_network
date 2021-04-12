@@ -1,11 +1,13 @@
 from model_HH_many_coupled_optimize_W import HH_many_coupled_optimize_W
-from HH_plotting import plot_many_neurons_simultaneous
-from HH_plotting import make_raster_plot
+from neuronal_plotting import plot_many_neurons_simultaneous
+from neuronal_plotting import make_raster_plot
 import numpy as np
 from scipy.integrate import odeint
 import time as time
 import scipy.sparse
 from scipy import stats
+
+# Deprecated
 
 ########################################################################################################################
 #

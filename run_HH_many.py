@@ -1,8 +1,10 @@
 from model_HH_many import HH_many
-from HH_plotting import plot_many_neurons
+from neuronal_plotting import plot_many_neurons
 import numpy as np
 from scipy.integrate import odeint
 import time as time
+
+# Deprecated
 
 # Number of neurons
 N = 100

@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 # from scipy.interpolate import interp1d
 import numpy as np
+
+# Deprecated
+
 def HH_single(state, t, *args):
     # Hodgkin-Huxley model taken from page 38 & 39 of Izhikevich's book Dynamical Systems in Neuroscience
     # Note Hodgkin and Huxley shifted the membrane potential here by ~65mV to make the resting potential ~ 0mV (0.1mV)

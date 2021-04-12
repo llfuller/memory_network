@@ -1,7 +1,9 @@
 from model_HH_single import HH_single
-from HH_plotting import plot_single_neuron
+from neuronal_plotting import plot_single_neuron
 import numpy as np
 from scipy.integrate import odeint
+
+# Deprecated
 
 # Timekeeping
 dt = 0.02

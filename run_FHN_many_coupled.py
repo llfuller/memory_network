@@ -1,4 +1,4 @@
-from model_HH_many_coupled_last_spike import HH_many_coupled_last_spike
+from model_FHN_many_coupled import FHN_many_coupled
 from neuronal_plotting import plot_many_neurons_simultaneous
 from neuronal_plotting import make_raster_plot
 from spike_methods import spike_list_to_array
@@ -11,8 +11,8 @@ from scipy import stats
 
 ########################################################################################################################
 #
-# Runs N neurons and N*N synapses in parallel ( system with dimensions (4*N + N*N) )
-# Type of neuron: Hodgkin-Huxley
+# Runs N neurons and N*N synapses in parallel ( system with dimensions (2*N + N*N) )
+# Type of neuron: FitzHugh-Nagumo
 #
 ########################################################################################################################
 
@@ -24,7 +24,7 @@ N = 30
 # Timekeeping (units in milliseconds)
 dt = 0.01
 time_start = 0.0
-time_total = 40000.0
+time_total = 10.0
 timesteps = int(float(time_total)/dt) # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 
@@ -70,12 +70,12 @@ STDP_scaling = 0.1
 ########################################################################################################################
 # Initial conditions
 # For number N neurons, make all neurons same initial conditions (noise optional):
-state_initial_Vnmh_single = np.array([6,0.5,0.5,0.5])
-state_initial_Vnmh_array = np.zeros((4,N)).astype(float)
+state_initial_Vw_single = np.array([6,0.5])
+state_initial_Vw_array = np.zeros((2,N)).astype(float)
 for i in range(N):
     # has shape (4, N)
-    state_initial_Vnmh_array[:,i]=state_initial_Vnmh_single
-state_initial_Vnmh_array = np.multiply(state_initial_Vnmh_array,
+    state_initial_Vw_array[:,i]=state_initial_Vw_single
+state_initial_Vnmh_array = np.multiply(state_initial_Vw_array,
                                        np.random.normal(loc=1, scale=state_random_std_dev_noise, size=((4,N)))
                                        )
 # Ensure gating variables n,m,h are within bounds [0,1]:
@@ -100,23 +100,23 @@ spike_list = [[] for i in range(N)] # Need N separate empty lists to record spik
 flattened_initial_Vnmh_states = state_initial_Vnmh_array.flatten() # shape(4*N)
 flattened_initial_synapse_states = (scipy.sparse.csr_matrix(state_initial_synaptic).toarray()).flatten() # shape(N*N)
 
-# Combined shape is (N*(4+N))
+# Combined shape is (N*(2+N))
 flattened_initial_states = np.concatenate((flattened_initial_Vnmh_states, flattened_initial_synapse_states))
 
 ########################################################################################################################
 # Solve system
 ########################################################################################################################
-# Sol has dimension (time, {state_vars + synapse vars} = {4 * N + N * N} )
+# Sol has dimension (time, {state_vars + synapse vars} = {2 * N + N * N} )
 print("Running "+str(N)+" neurons for "+str(timesteps)+" timesteps of size "+str(dt))
 start_time = time.time()
 # sol will contain solutions to system and odeint will fill spike_list
-sol = odeint(HH_many_coupled_last_spike, flattened_initial_states, times_array,
+sol = odeint(FHN_many_coupled, flattened_initial_states, times_array,
              args = (external_current, N, timesteps, times_array, last_firing_times, E_syn, spike_list,
                      use_STDP, tau_W, STDP_scaling))
 print("Program took "+str(time.time()-start_time)+" seconds to run.")
-sol_matrix_Vnmh_and_synapses = sol.reshape(timesteps, 4*N + N*N)
-sol_matrix_Vnmh_only = sol_matrix_Vnmh_and_synapses[:,:4*N]
-sol_matrix_synapses_only = sol_matrix_Vnmh_and_synapses[:,4*N:]
+sol_matrix_Vnmh_and_synapses = sol.reshape(timesteps, 2*N + N*N)
+sol_matrix_Vnmh_only = sol_matrix_Vnmh_and_synapses[:,:2*N]
+sol_matrix_synapses_only = sol_matrix_Vnmh_and_synapses[:,2*N:]
 
 ########################################################################################################################
 # Saving data
@@ -125,12 +125,12 @@ spike_list_array = spike_list_to_array(N, spike_list) # array dimension(N, ???)
 np.savetxt('spike_data/spike_list;'+extra_descriptors+'.txt', spike_list_array, fmt='%.3e')
 # dims(timesteps, N):
 np.savetxt('voltages/V;STDP='+str(use_STDP)+';'+str(extra_descriptors)+'.txt',
-           sol_matrix_Vnmh_only.reshape(timesteps, 4, N)[:, 0, :], fmt='%.3e')
+           sol_matrix_Vnmh_only.reshape(timesteps, 2, N)[:, 0, :], fmt='%.3e')
 np.savetxt('modified_weights/W;STDP='+str(use_STDP)+';'+str(extra_descriptors)+'.txt',
            sol_matrix_synapses_only[-1, :].reshape((N,N)), fmt='%.3e')
 
 # Plot spike times
 make_raster_plot(N, spike_list, use_STDP, extra_descriptors)
 # Plot the active neurons
-plot_many_neurons_simultaneous(N, times_array, sol_matrix_Vnmh_only.reshape(timesteps, 4, N), use_STDP,
+plot_many_neurons_simultaneous(N, times_array, sol_matrix_Vnmh_only.reshape(timesteps, 2, N), use_STDP,
                                extra_descriptors)
