@@ -24,17 +24,17 @@ N = 30
 # Timekeeping (units in milliseconds)
 dt = 0.01
 time_start = 0.0
-time_total = 10.0
+time_total = 100.0
 timesteps = int(float(time_total)/dt) # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 
 # Imported current
-current_object = currents.I_sine()
+current_object = currents.I_flat(magnitude=0.5)
 external_current = current_object.function
 # extra descriptors for file name and sometimes plot titles; often contains current name
 extra_descriptors = current_object.name + ';'+current_object.extra_descriptors
 
-# Noise: Standard deviation of noise in V,n,m,h initial conditions (keep below 0.4 to avoid m,n,h below 0 or above 1)
+# Noise: Standard deviation of noise in V,w initial conditions
 state_random_std_dev_noise = 0.4
 
 ########################################################################################################################
@@ -61,7 +61,7 @@ for n in range(N):
                + (random_num>=ei_threshold)*E_syn_excitatory
 
 # STDP-related variables
-use_STDP = True # Control whether STDP is used to adapt synaptic weights or not
+use_STDP = False # Control whether STDP is used to adapt synaptic weights or not
 tau_W = 3 # ms
 STDP_scaling = 0.1
 
@@ -70,22 +70,22 @@ STDP_scaling = 0.1
 ########################################################################################################################
 # Initial conditions
 # For number N neurons, make all neurons same initial conditions (noise optional):
-state_initial_Vw_single = np.array([6,0.5])
+state_initial_Vw_single = np.array([0.0,0.0])
 state_initial_Vw_array = np.zeros((2,N)).astype(float)
 for i in range(N):
     # has shape (4, N)
     state_initial_Vw_array[:,i]=state_initial_Vw_single
 state_initial_Vnmh_array = np.multiply(state_initial_Vw_array,
-                                       np.random.normal(loc=1, scale=state_random_std_dev_noise, size=((4,N)))
+                                       np.random.normal(loc=1, scale=state_random_std_dev_noise, size=((2,N)))
                                        )
-# Ensure gating variables n,m,h are within bounds [0,1]:
-for n in range(N):
-    for i in range(4):
-        if i > 0:
-            if state_initial_Vnmh_array[i,n] < 0:
-                state_initial_Vnmh_array[i, n] = 0
-            elif state_initial_Vnmh_array[i,n] > 1:
-                state_initial_Vnmh_array[i, n] = 1
+# # Ensure gating variables n,m,h are within bounds [0,1]:
+# for n in range(N):
+#     for i in range(4):
+#         if i > 0:
+#             if state_initial_Vnmh_array[i,n] < 0:
+#                 state_initial_Vnmh_array[i, n] = 0
+#             elif state_initial_Vnmh_array[i,n] > 1:
+#                 state_initial_Vnmh_array[i, n] = 1
 
 # randomly initialize sparse synaptic weights
 # Synaptic connections have shape (N,N), from interval [-1,1)

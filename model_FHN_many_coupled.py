@@ -22,13 +22,14 @@ def FHN_many_coupled(state, t, *args):
     I_instr_t = args[0](N, t)  # units microAmps/cm^2
     # for n in range(N):
     for i in range(N):
-        if (V[i]>40) and ((t-last_firing_times[i])>12):
+        if (V[i]>0.5) and ((t-last_firing_times[i])>12):
             last_firing_times[i] = t
             spike_list[i].append(t)
     # Cell parameters
     a = 0.8
     b = 0.7
-    R = 1 # this value is set so that the scale of I_instr_t affecting V is the same as in model_HH_many_coupled.py
+    R = 0.016666 # this value is set so that the scale of I_instr_t affecting V is the same as in model_HH_many_coupled.py
+    tau_w = 1.0/0.08
 
     # Corresponding to membrane resting potential at V~0.
 
@@ -37,10 +38,9 @@ def FHN_many_coupled(state, t, *args):
     tau_syn = 3 # ms
     g_syn = g_syn_max*np.exp(-(t-last_firing_times)/tau_syn)
 
-
     # Equations of motion for state variables (should be shape N)
-    dVdt = V - V**3/3 - w + R*I_instr_t
-    dwdt = V + a - b*w
+    dVdt = V - (np.power(V,3))/3 - w + R*I_instr_t
+    dwdt = 1.0/tau_w*(V + a - b*w)
 
     dVnmhdt = np.array([dVdt, dwdt]).flatten() # Has shape (2*N) after flattening
     dSynapsesdt_temp = np.zeros(A.shape) # initialize dSynapsesdt. Will not change if STDP not used next

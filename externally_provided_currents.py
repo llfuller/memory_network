@@ -2,8 +2,9 @@ import numpy as np
 
 # Currents
 class I_flat():
-    def __init__(self):
+    def __init__(self, magnitude = 30):
         self.name = "I_flat"
+        self.extra_descriptors = ('magnitude='+str(magnitude)).replace('.','p')
 
     def function(self,N,t,I_max=30):
         I_ext = I_max*np.ones((N))

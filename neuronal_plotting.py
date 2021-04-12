@@ -37,7 +37,7 @@ def plot_many_neurons(N, times_array, sol):
         plt.show()
 
 def plot_many_neurons_simultaneous(N, times_array, sol, use_STDP, extra_descriptors=''):
-    # sol has shape (timesteps, 4, N)
+    # sol has shape (timesteps, 4 or 2, N)
     plt.figure()
 
     for i in range(N):

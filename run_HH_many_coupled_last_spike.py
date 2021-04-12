@@ -24,7 +24,7 @@ N = 30
 # Timekeeping (units in milliseconds)
 dt = 0.01
 time_start = 0.0
-time_total = 40000.0
+time_total = 20.0
 timesteps = int(float(time_total)/dt) # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 
