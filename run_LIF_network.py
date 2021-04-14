@@ -18,24 +18,34 @@ from scipy import stats
 
 np.random.seed(2021)
 
-# Combinations that max RAM:
+# Combinations that max RAM if using W_t = (timesteps,N,N):
+# (N=1100, time_total=50)
+# (N=600,  time_total=200)
+# (N=360,  time_total=500)
+
+# Combinations that max RAM if using W = (N,N):
 # (N=1100, time_total=50)
 # (N=600,  time_total=200)
 # (N=360,  time_total=500)
 
 # Number of neurons
-N = 600
+N = 1100
 
 # Timekeeping (units in milliseconds)
 dt = 0.01
 time_start = 0.0
-time_total = 200.0
+time_total = 100.0
 timesteps = int(float(time_total)/dt) # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 print(np.shape(times_array))
 # Imported current
 # current_object = currents.I_flat(magnitude=0.5)
-current_object = currents.I_flat_random_targets(magnitude=0.5, density=0.25)
+# current_object = currents.I_flat_random_noise(magnitude=10, density=0.3)
+# current_object = currents.I_flat_random_targets(N, magnitude=10, density=0.1)
+
+current_object = currents.combined_current_object([currents.I_flat_random_noise(magnitude=10, density=0.3),
+                                                   currents.I_flat(magnitude=9.5)])
+
 # current_object = currents.I_sine(I_max=30)
 external_current = current_object.function
 # extra descriptors for file name and sometimes plot titles; often contains current name
@@ -127,10 +137,8 @@ print(flattened_initial_states)
 # Sol has dimension (time, {state_vars + synapse vars} = {N + N * N} )
 print("Running "+str(N)+" neurons for "+str(timesteps)+" timesteps of size "+str(dt))
 start_time = time.time()
-# sol will contain solutions to system and odeint will fill spike_list
-# sol = LIF_network(flattened_initial_states, times_array,
-#                   args = (dt, N, external_current, R, C, threshold, last_firing_times, V_reset, refractory_time))
-sol_V_t, sol_W_t, last_firing_array= LIF_network(flattened_initial_states, times_array,
+# sol will contain solutions to system and Euler integration will fill spike_list
+sol_V_t, W_final, last_firing_array= LIF_network(flattened_initial_states, times_array,
                                            dt, N, external_current, R, C, threshold,
                                            last_firing_times, V_reset, refractory_time, g_syn_max,
                                            tau_syn, spike_list, use_STDP)
@@ -145,17 +153,17 @@ np.savetxt('spike_data/spike_list;'+extra_descriptors+'.txt', spike_list_array, 
 np.savetxt('voltages/V;STDP='+str(use_STDP)+';'+str(extra_descriptors)+'.txt',
            sol_V_t.reshape(timesteps, 1, N)[:, 0, :], fmt='%.3e')
 np.savetxt('modified_weights/W;STDP='+str(use_STDP)+';'+str(extra_descriptors)+'.txt',
-           sol_W_t[-1, :].reshape((N,N)), fmt='%.3e')
+           W_final, fmt='%.3e')
 
 # # Plot spike times
 print("SPIKE LIST: "+str(spike_list))
-for n in range(N):
-    for time_index in range(timesteps):
-        if last_firing_array[time_index, n] not in spike_list[n]:
-            if last_firing_array[time_index, n] != bogus_spike_time:
-                # print(last_firing_array[time_index, n])
-                spike_list[n].append(last_firing_array[time_index, n])
-make_raster_plot(N, spike_list, use_STDP, extra_descriptors)
+# for n in range(N):
+#     for time_index in range(timesteps):
+#         if last_firing_array[time_index, n] not in spike_list[n]:
+#             if last_firing_array[time_index, n] != bogus_spike_time:
+#                 # print(last_firing_array[time_index, n])
+#                 spike_list[n].append(last_firing_array[time_index, n])
+# make_raster_plot(N, spike_list, use_STDP, extra_descriptors)
 # Plot the active neurons
 plot_many_neurons_simultaneous(N, times_array, sol_V_t.reshape(timesteps, 1, N), use_STDP,
                                extra_descriptors)

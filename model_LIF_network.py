@@ -9,10 +9,9 @@ def LIF_network(state_initial, times_array,
     beta = dt/(C*R)
     V_t = np.zeros((times_array.shape[0], N))
     V_t[0,:] = state_initial[:N]
-    W_t = np.zeros((times_array.shape[0], N, N))
-    W_t[0,:,:] = state_initial[N : N+N*N].reshape((N,N))
     last_firing_array = np.nan*np.ones((times_array.shape[0], N)) # nan allows easier raster plotting later
-
+    W = state_initial[N : N+N*N].reshape((N,N))
+    print(W.shape)
     def g_syn(g_syn_max, last_firing_times, tau_syn, t):
         return g_syn_max * np.exp(-(t - last_firing_times) / tau_syn)
 
@@ -29,7 +28,7 @@ def LIF_network(state_initial, times_array,
         last_firing_times[V_t_above_thresh] = t
         # Add synaptic currents due to firing
         V_t[time_index + 1, :] += alpha * g_syn_max* \
-                                  np.multiply(np.matmul(W_t[time_index],
+                                  np.multiply(np.matmul(W,
                                                         g_syn(g_syn_max, last_firing_times, tau_syn, t)),
                                               V_t[time_index])
 
@@ -38,11 +37,12 @@ def LIF_network(state_initial, times_array,
         last_firing_array[time_index, :] = last_firing_times
         V_t[time_index+1, :][V_t_above_thresh] = V_reset
         if use_STDP:
-            W_t[time_index+1, :, :] = W_t[time_index, :, :]
+            W = W
     # plt.figure()
     # plt.plot(V_t)
     # plt.show()
-    return [V_t, W_t, last_firing_array]
+    print(W.shape)
+    return [V_t, W, last_firing_array]
 
 
 

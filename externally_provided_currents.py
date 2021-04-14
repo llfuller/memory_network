@@ -1,39 +1,84 @@
 import numpy as np
 
+class combined_current_object():
+    def __init__(self, current_objects_list):
+        self.current_objects_list = current_objects_list
+        self.name = ''
+        for a_current_object in current_objects_list:
+            self.name += a_current_object.name +','
+        self.extra_descriptors = ''
+        for a_current_object in current_objects_list:
+            self.extra_descriptors += a_current_object.extra_descriptors
+
+    def function(self, N, t):
+        combined_I_ext = np.zeros((N))
+        for a_current_object in self.current_objects_list:
+            combined_I_ext += a_current_object.function(N, t)
+        return combined_I_ext
+
 # Currents
 class I_flat():
     def __init__(self, magnitude = 30):
         self.name = "I_flat"
+        self.magnitude = magnitude
         self.extra_descriptors = ('magnitude='+str(magnitude)).replace('.','p')
 
-    def function(self,N,t,I_max=30):
-        I_ext = I_max*np.ones((N))
+    def function(self,N,t):
+        I_ext = self.magnitude*np.ones((N))
         return I_ext
 
 class I_flat_random_targets():
-    def __init__(self, magnitude = 30, density = 0.01):
+    def __init__(self, N, target_array = None, magnitude = 30, density = 0.01):
         self.name = "I_flat_random_targets"
         self.density = density
+        # Creating target_array
+        self.target_array = target_array
+        if target_array == None:
+            self.target_array = np.random.rand(N)
+            # element is 1 if targeted, 0 if not
+            self.target_array[self.target_array > self.density] = 0
+            self.target_array[self.target_array > 0] = 1
+        self.magnitude = magnitude
         self.extra_descriptors = ('magnitude='+str(magnitude)).replace('.','p')
 
-    def function(self,N,t,I_max=30):
-        I_ext = I_max*np.ones((N))
+    def function(self,N,t):
+        I_ext = self.magnitude*self.target_array
+        # print(I_ext[:30])
+        return I_ext
+
+
+class I_flat_random_noise():
+    def __init__(self, magnitude = 30, density = 0.01):
+        self.name = "I_flat_random_noise"
+        self.density = density
+        self.magnitude = magnitude
+        self.extra_descriptors = ('magnitude='+str(magnitude)).replace('.','p')
+
+    def function(self,N,t):
+        I_ext = self.magnitude*np.ones((N))
         random_array = np.random.rand(N)
-        # print(random_array)
-        random_array[random_array > self.density] = 0
-        random_array[random_array > 0] = 1
+        random_array -=0.5
         I_ext = np.multiply(I_ext, random_array)
+        # I_ext = I_max*np.ones((N))
+        # random_array = np.random.rand(N)
+        # # print(random_array)
+        # random_array[random_array > self.density] = 0
+        # random_array[random_array > 0] = 1
+        # print(random_array)
+        # random_array -= 0.5
+        # I_ext = np.multiply(I_ext, random_array)
         # print(I_ext)
         return I_ext
 
 
 class I_flat_incomplete():
 
-    def __init__(self):
+    def __init__(self, magnitude = 30):
         self.name = "I_flat_incomplete"
+        self.magnitude = magnitude
 
-    def function(self, N,t,I_max=30):
-        I_ext = I_max*np.ones((N))
+    def function(self, N,t):
+        I_ext = self.magnitude*np.ones((N))
         for i in range(N):
             if i in range(5):
                 I_ext[i] = 0
