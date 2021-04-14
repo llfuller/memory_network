@@ -10,6 +10,23 @@ class I_flat():
         I_ext = I_max*np.ones((N))
         return I_ext
 
+class I_flat_random_targets():
+    def __init__(self, magnitude = 30, density = 0.01):
+        self.name = "I_flat_random_targets"
+        self.density = density
+        self.extra_descriptors = ('magnitude='+str(magnitude)).replace('.','p')
+
+    def function(self,N,t,I_max=30):
+        I_ext = I_max*np.ones((N))
+        random_array = np.random.rand(N)
+        # print(random_array)
+        random_array[random_array > self.density] = 0
+        random_array[random_array > 0] = 1
+        I_ext = np.multiply(I_ext, random_array)
+        # print(I_ext)
+        return I_ext
+
+
 class I_flat_incomplete():
 
     def __init__(self):

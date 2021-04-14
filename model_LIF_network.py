@@ -5,34 +5,21 @@ def LIF_network(state_initial, times_array,
                 dt, N, I_instr_t, R, C, threshold,
                 last_firing_times, V_reset, refractory_time, g_syn_max,
                 tau_syn, spike_list, use_STDP):
-    # dt = args[0]
-    # N = args[1]
-    # I_instr_t = args[2]
-    # R = args[3]
-    # C = args[4]
-    # threshold = args[5]
-    # last_firing_times = args[6]
-    # V_reset = args[7] # baseline to reset to after spiking
-    # refractory_time = args[8]
-    # print(state_initial)
     alpha = dt / C
     beta = dt/(C*R)
     V_t = np.zeros((times_array.shape[0], N))
     V_t[0,:] = state_initial[:N]
     W_t = np.zeros((times_array.shape[0], N, N))
     W_t[0,:,:] = state_initial[N : N+N*N].reshape((N,N))
-    # print(W_t[0,:,:])
     last_firing_array = np.nan*np.ones((times_array.shape[0], N)) # nan allows easier raster plotting later
-    # g_syn = g_syn_max * np.exp(-(t - last_firing_times) / tau_syn)
+
+    def g_syn(g_syn_max, last_firing_times, tau_syn, t):
+        return g_syn_max * np.exp(-(t - last_firing_times) / tau_syn)
+
     for time_index, t in enumerate(times_array[:-1]):
         # Leaky integrate
         V_t[time_index+1,:] = (1-beta)*V_t[time_index,:]
         V_t[time_index+1,:] += alpha * I_instr_t(N,t)
-        # a = a*((1-beta) + alpha * I_instr_t(N,t))
-        # print(a)
-        # print(I_instr_t(N,t))
-        # print(V_t[time_index+1,:])
-        # print("ALPHA:"+str(alpha))
         # Reset all neurons still in refractory to baseline
         in_refractory = ((t - last_firing_times) < refractory_time)
         (V_t[time_index+1,:])[in_refractory] = V_reset
@@ -40,25 +27,18 @@ def LIF_network(state_initial, times_array,
         V_t_above_thresh = V_t[time_index, :] > threshold
         # Fire
         last_firing_times[V_t_above_thresh] = t
-        # Synaptic currents due to firing
-        # print(W_t[time_index]*g_syn_max)
-        # print(np.shape(V_t_above_thresh))
-        # print(np.tile(V_t_above_thresh,(N,1)))
-        # print("shape of V_t: "+str(np.shape(V_t)))
-        # print(W_t[time_index])
-        V_t[time_index + 1, :] += alpha * g_syn_max* np.matmul(np.multiply(W_t[time_index],
-                                                                           np.tile(V_t_above_thresh,(N,1)).transpose()),
-                                                               V_t[time_index])
-        # print(np.multiply(W_t[time_index],np.tile(V_t_above_thresh,(N,1)).transpose()))
-        # if np.count_nonzero(np.multiply(W_t[time_index], np.tile(V_t_above_thresh,(N,1)).transpose())) != 0:
-        #     print(np.multiply(W_t[time_index], np.tile(V_t_above_thresh,(N,1)).transpose()))
+        # Add synaptic currents due to firing
+        V_t[time_index + 1, :] += alpha * g_syn_max* \
+                                  np.multiply(np.matmul(W_t[time_index],
+                                                        g_syn(g_syn_max, last_firing_times, tau_syn, t)),
+                                              V_t[time_index])
+
+
         # Reset to baseline if above threshold
-        print(alpha * g_syn_max* np.matmul(np.multiply(W_t[time_index],np.tile(V_t_above_thresh,(N,1)).transpose()),
-                                           V_t[time_index]))
         last_firing_array[time_index, :] = last_firing_times
         V_t[time_index+1, :][V_t_above_thresh] = V_reset
         if use_STDP:
-            W_t[time_index+1, :, :] = W_t[time_index, :, :]-1000
+            W_t[time_index+1, :, :] = W_t[time_index, :, :]
     # plt.figure()
     # plt.plot(V_t)
     # plt.show()

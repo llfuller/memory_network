@@ -18,18 +18,25 @@ from scipy import stats
 
 np.random.seed(2021)
 
+# Combinations that max RAM:
+# (N=1100, time_total=50)
+# (N=600,  time_total=200)
+# (N=360,  time_total=500)
+
 # Number of neurons
-N = 1000
+N = 600
 
 # Timekeeping (units in milliseconds)
-dt = 0.05
+dt = 0.01
 time_start = 0.0
-time_total = 50.0
+time_total = 200.0
 timesteps = int(float(time_total)/dt) # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 print(np.shape(times_array))
 # Imported current
-current_object = currents.I_flat(magnitude=0.5)
+# current_object = currents.I_flat(magnitude=0.5)
+current_object = currents.I_flat_random_targets(magnitude=0.5, density=0.25)
+# current_object = currents.I_sine(I_max=30)
 external_current = current_object.function
 # extra descriptors for file name and sometimes plot titles; often contains current name
 extra_descriptors = current_object.name + ';'+current_object.extra_descriptors
@@ -56,13 +63,13 @@ u_bound = 10
 stats_scale = u_bound - l_bound # used for "scale" argument in data_rvs argument of scipy sparse random method
 
 # Synapse density (1 = fully connected, 0 = never any connection)
-synapse_density = 1
+synapse_density = 0.1
 
 # Synaptic conductance scaling factor
 g_syn_max = 0.5
 
 # Synaptic time constant
-tau_syn = 3 # ms
+tau_syn = 1 # ms
 
 # Synaptic Nernst potentials
 # Each presynaptic neuron in this simulation is either inhibitory or excitatory (also known as Dale's Law)
