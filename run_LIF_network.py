@@ -43,8 +43,9 @@ print(np.shape(times_array))
 # current_object = currents.I_flat_random_noise(magnitude=10, density=0.3)
 # current_object = currents.I_flat_random_targets(N, magnitude=10, density=0.1)
 
-current_object = currents.combined_current_object([currents.I_flat_random_noise(magnitude=10, density=0.3),
-                                                   currents.I_flat(magnitude=9.5)])
+current_object = currents.sum_multi_current_object([currents.I_flat_random_targets(N, magnitude=20),
+                                                    currents.I_flat_random_noise(magnitude=10, density=0.3),
+                                                    currents.I_sine(magnitude=2, frequency=0.1)])
 
 # current_object = currents.I_sine(I_max=30)
 external_current = current_object.function
@@ -76,10 +77,10 @@ stats_scale = u_bound - l_bound # used for "scale" argument in data_rvs argument
 synapse_density = 0.1
 
 # Synaptic conductance scaling factor
-g_syn_max = 0.5
+g_syn_max = 0.2
 
 # Synaptic time constant
-tau_syn = 1 # ms
+tau_syn = 3 # ms
 
 # Synaptic Nernst potentials
 # Each presynaptic neuron in this simulation is either inhibitory or excitatory (also known as Dale's Law)
