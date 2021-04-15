@@ -29,7 +29,7 @@ np.random.seed(2021)
 # (N=360,  time_total=500)
 
 # Number of neurons
-N = 1100
+N = 300
 
 # Timekeeping (units in milliseconds)
 dt = 0.01
@@ -44,8 +44,7 @@ print(np.shape(times_array))
 # current_object = currents.I_flat_random_targets(N, magnitude=10, density=0.1)
 
 current_object = currents.sum_multi_current_object([currents.I_flat_random_targets(N, magnitude=20),
-                                                    currents.I_flat_random_noise(magnitude=10, density=0.3),
-                                                    currents.I_sine(magnitude=2, frequency=0.1)])
+                                                    currents.I_flat_random_noise()])
 
 # current_object = currents.I_sine(I_max=30)
 external_current = current_object.function
@@ -79,14 +78,17 @@ synapse_density = 0.1
 # Synaptic conductance scaling factor
 g_syn_max = 0.2
 
+# Delay between presynaptic neuron firing and effect on postsynaptic neuron starting
+synapse_delay_delta_t = 1.0 #ms
+
 # Synaptic time constant
 tau_syn = 3 # ms
 
 # Synaptic Nernst potentials
 # Each presynaptic neuron in this simulation is either inhibitory or excitatory (also known as Dale's Law)
 # Not totally necessary but I'll implement it here anyway
-E_syn_excitatory = 120 # arbitrarily decided values
-E_syn_inhibitory = -50
+E_syn_excitatory = 15 # arbitrarily decided values
+E_syn_inhibitory = 0
 ei_threshold = 0.8# "excite-inhibit threshold". A number between 0 and 1. Percentage of connections which are inhibitory
 E_syn = np.zeros((N))
 for n in range(N):
@@ -97,18 +99,14 @@ for n in range(N):
 # STDP-related variables
 use_STDP = True # Control whether STDP is used to adapt synaptic weights or not
 tau_W = 3 # ms
-STDP_scaling = 0.1
+STDP_scaling = 0.0
 
 ########################################################################################################################
 # Initial Conditions and Preparing to Solve
 ########################################################################################################################
 # Initial conditions
 # For number N neurons, make all neurons same initial conditions (noise optional):
-# state_initial_V_single = np.array([0.0])
 state_initial_V_array = np.zeros((N)).astype(float)
-# for i in range(N):
-#     # has shape (N)
-#     state_initial_V_array[i]=state_initial_V_single
 state_initial_V_array = np.multiply(state_initial_V_array,
                                        np.random.normal(loc=1, scale=state_random_std_dev_noise, size=((N)))
                                        )
@@ -140,9 +138,10 @@ print("Running "+str(N)+" neurons for "+str(timesteps)+" timesteps of size "+str
 start_time = time.time()
 # sol will contain solutions to system and Euler integration will fill spike_list
 sol_V_t, W_final, last_firing_array= LIF_network(flattened_initial_states, times_array,
-                                           dt, N, external_current, R, C, threshold,
-                                           last_firing_times, V_reset, refractory_time, g_syn_max,
-                                           tau_syn, spike_list, use_STDP)
+                                                 dt, N, external_current, R, C, threshold,
+                                                 last_firing_times, V_reset, refractory_time, g_syn_max,
+                                                 E_syn, tau_syn, spike_list, use_STDP, STDP_scaling, tau_W,
+                                                 synapse_delay_delta_t)
 print("Program took "+str(time.time()-start_time)+" seconds to run.")
 
 ########################################################################################################################
@@ -158,13 +157,13 @@ np.savetxt('modified_weights/W;STDP='+str(use_STDP)+';'+str(extra_descriptors)+'
 
 # # Plot spike times
 print("SPIKE LIST: "+str(spike_list))
-# for n in range(N):
-#     for time_index in range(timesteps):
-#         if last_firing_array[time_index, n] not in spike_list[n]:
-#             if last_firing_array[time_index, n] != bogus_spike_time:
-#                 # print(last_firing_array[time_index, n])
-#                 spike_list[n].append(last_firing_array[time_index, n])
-# make_raster_plot(N, spike_list, use_STDP, extra_descriptors)
+for n in range(N):
+    sorted_unique_last_firing_of_neuron_n = np.unique(last_firing_array[:, n])
+    for a_firing_time in sorted_unique_last_firing_of_neuron_n:
+        if a_firing_time not in spike_list[n]:
+            if a_firing_time != bogus_spike_time:
+                spike_list[n].append(a_firing_time)
+make_raster_plot(N, spike_list, use_STDP, extra_descriptors)
 # Plot the active neurons
 plot_many_neurons_simultaneous(N, times_array, sol_V_t.reshape(timesteps, 1, N), use_STDP,
                                extra_descriptors)

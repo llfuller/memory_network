@@ -4,16 +4,22 @@ import matplotlib.pyplot as plt
 def LIF_network(state_initial, times_array,
                 dt, N, I_instr_t, R, C, threshold,
                 last_firing_times, V_reset, refractory_time, g_syn_max,
-                tau_syn, spike_list, use_STDP):
+                E_syn, tau_syn, spike_list, use_STDP, STDP_scaling, tau_W, synapse_delay_delta_t):
     alpha = dt / C
     beta = dt/(C*R)
     V_t = np.zeros((times_array.shape[0], N))
     V_t[0,:] = state_initial[:N]
     last_firing_array = np.nan*np.ones((times_array.shape[0], N)) # nan allows easier raster plotting later
     W = state_initial[N : N+N*N].reshape((N,N))
-    print(W.shape)
-    def g_syn(g_syn_max, last_firing_times, tau_syn, t):
-        return g_syn_max * np.exp(-(t - last_firing_times) / tau_syn)
+    timesteps_synapse_delay = int(synapse_delay_delta_t/dt)
+    print(timesteps_synapse_delay)
+    def g_syn(g_syn_max, last_firing_times, tau_syn, t, synapse_delay_delta_t):
+        t_after_firing = t - (last_firing_times + synapse_delay_delta_t)
+        synapse_effect_on = t_after_firing.copy()
+        synapse_effect_on[t_after_firing<0] = 0
+        synapse_effect_on[t_after_firing>0] = 1
+
+        return g_syn_max * np.multiply(np.exp(-t_after_firing / tau_syn),synapse_effect_on)
 
     for time_index, t in enumerate(times_array[:-1]):
         # Leaky integrate
@@ -24,23 +30,31 @@ def LIF_network(state_initial, times_array,
         (V_t[time_index+1,:])[in_refractory] = V_reset
         # Find V above threshold
         V_t_above_thresh = V_t[time_index, :] > threshold
-        # Fire
+        # Record firings
         last_firing_times[V_t_above_thresh] = t
         # Add synaptic currents due to firing
         V_t[time_index + 1, :] += alpha * g_syn_max* \
                                   np.multiply(np.matmul(W,
-                                                        g_syn(g_syn_max, last_firing_times, tau_syn, t)),
-                                              V_t[time_index])
+                                                        g_syn(g_syn_max, last_firing_times, tau_syn, t,
+                                                              synapse_delay_delta_t)),
+                                              (E_syn-V_t[time_index-timesteps_synapse_delay]))
 
 
         # Reset to baseline if above threshold
         last_firing_array[time_index, :] = last_firing_times
         V_t[time_index+1, :][V_t_above_thresh] = V_reset
+        # Reset to baseline if below baseline:
+        # Find V below baseline
+        V_t_below_reset = V_t[time_index, :] < V_reset
+        V_t[time_index + 1, :][V_t_below_reset] = V_reset
+        # Adapt weights into postsynaptic neurons (index i) that have just fired according to V_t_above_thresh
         if use_STDP:
-            W = W
-    # plt.figure()
-    # plt.plot(V_t)
-    # plt.show()
+            timing_difference = np.subtract.outer(last_firing_times, last_firing_times)  # positive if pre spiked first
+            delta_W = STDP_scaling \
+                           * np.multiply(np.sign(timing_difference), np.exp(-np.abs(timing_difference)/tau_W))
+            delta_W[W==0] = 0 # Make sure cells without connections do not develop them
+            delta_W[delta_W<0] = 0 # Ensure conductances don't drop below zero (which would switch excite/inhibit)
+            W += delta_W
     print(W.shape)
     return [V_t, W, last_firing_array]
 
