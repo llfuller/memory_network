@@ -159,3 +159,32 @@ class I_sine():
         if (self.cut_time is not None) and (t >= self.cut_time):
             I_ext = np.zeros((N))
         return I_ext
+
+class I_flat_alternating_steps():
+    def __init__(self, magnitude = 30, steps_height_list = [1,1,2,3,2,1,3], I_dt = 0.03):
+        """
+        Args:
+            magnitude (float): magnitude of current supplied to all neurons at all times
+        """
+        self.name = "I_flat_alternating_steps"
+        self.magnitude = magnitude
+        self.extra_descriptors = ('magnitude='+str(magnitude)).replace('.','p')
+        self.steps_height_list = steps_height_list
+        self.I_dt = I_dt # time between alternating step heights
+
+    def function(self,N,t):
+        steps_height_list = self.steps_height_list
+        I_ext = self.magnitude * np.ones((N))
+        if t<self.I_dt:
+            I_ext *= steps_height_list[0]
+        if self.I_dt < t and t < 2*self.I_dt:
+            I_ext *= steps_height_list[1]
+        if 2*self.I_dt < t and t < 3*self.I_dt:
+            I_ext *= steps_height_list[2]
+        if 3*self.I_dt < t and t < 4*self.I_dt:
+            I_ext *= steps_height_list[4]
+        if 4*self.I_dt < t and t < 5*self.I_dt:
+            I_ext *= steps_height_list[5]
+        if 5*self.I_dt < t and t < 6*self.I_dt:
+            I_ext *= steps_height_list[6]
+        return I_ext
