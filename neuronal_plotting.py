@@ -61,7 +61,7 @@ def make_raster_plot(N, spike_list, use_STDP, extra_descriptors=''):
             spike_list_flattened.append(a_time)
 
     plt.figure()
-    plt.scatter(spike_list_flattened, number_list)
+    plt.scatter(spike_list_flattened, number_list, s=0.9)
     plt.xlabel('Time (ms)')
     plt.ylabel('Neuron Label')
     if use_STDP == True:

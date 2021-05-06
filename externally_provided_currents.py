@@ -90,6 +90,9 @@ class I_flat_random_targets():
 
     def function(self,N,t):
         I_ext = self.magnitude*self.target_array
+        # for i, an_el in enumerate(I_ext):
+        #         if(an_el!=0):
+        #             print((i))
         # print(I_ext[:30])
         return I_ext
 
@@ -161,7 +164,7 @@ class I_sine():
         return I_ext
 
 class I_flat_alternating_steps():
-    def __init__(self, magnitude = 30, steps_height_list = [1,1,2,3,2,1,3], I_dt = 0.03):
+    def __init__(self, magnitude=30, I_dt=30, steps_height_list = [1,1,5,5,1,1,15,1,0,1,1]):
         """
         Args:
             magnitude (float): magnitude of current supplied to all neurons at all times
@@ -176,15 +179,23 @@ class I_flat_alternating_steps():
         steps_height_list = self.steps_height_list
         I_ext = self.magnitude * np.ones((N))
         if t<self.I_dt:
-            I_ext *= steps_height_list[0]
+            I_ext *= self.steps_height_list[0]
         if self.I_dt < t and t < 2*self.I_dt:
-            I_ext *= steps_height_list[1]
+            I_ext *= self.steps_height_list[1]
         if 2*self.I_dt < t and t < 3*self.I_dt:
-            I_ext *= steps_height_list[2]
+            I_ext *= self.steps_height_list[2]
         if 3*self.I_dt < t and t < 4*self.I_dt:
-            I_ext *= steps_height_list[4]
+            I_ext *= self.steps_height_list[4]
         if 4*self.I_dt < t and t < 5*self.I_dt:
-            I_ext *= steps_height_list[5]
+            I_ext *= self.steps_height_list[5]
         if 5*self.I_dt < t and t < 6*self.I_dt:
-            I_ext *= steps_height_list[6]
+            I_ext *= self.steps_height_list[6]
+        if 6*self.I_dt < t and t < 7*self.I_dt:
+            I_ext *= self.steps_height_list[7]
+        if 7*self.I_dt < t and t < 8*self.I_dt:
+            I_ext *= self.steps_height_list[8]
+        if 8*self.I_dt < t and t < 9*self.I_dt:
+            I_ext *= self.steps_height_list[9]
+        if 9*self.I_dt < t and t < 10*self.I_dt:
+            I_ext *= self.steps_height_list[10]
         return I_ext
