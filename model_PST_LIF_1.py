@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-# def LIF_network(V_initial, times_array, *args):
+
 def PST_LIF_1_network(state_initial, times_array,
                 dt, N, I_instr_t, R, C, threshold,
                 last_firing_times, V_reset, refractory_time, g_syn_max,

@@ -34,7 +34,7 @@ N = 1000
 # Timekeeping (units in milliseconds)
 dt = 0.1
 time_start = 0.0
-time_total = 300.0
+time_total = 500.0
 timesteps = int(float(time_total)/dt) # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 print(np.shape(times_array))
@@ -43,7 +43,7 @@ print(np.shape(times_array))
 # current_object = currents.I_flat_random_noise(magnitude=10, density=0.3)
 # current_object = currents.I_flat_random_targets(N, magnitude=10, density=0.1)
 
-current_object = currents.multiply_multi_current_object([currents.I_flat_alternating_steps(magnitude=10),
+current_object = currents.multiply_multi_current_object([currents.I_flat_alternating_steps(magnitude=3),
                                                         currents.I_flat_random_targets(N, magnitude=1.0, density=0.01)])
 
 # current_object = currents.I_sine(I_max=30)
@@ -79,7 +79,7 @@ synapse_density = 0.1
 g_syn_max = 0.5
 
 # Delay between presynaptic neuron firing and effect on postsynaptic neuron feeling effect
-synapse_delay_delta_t = refractory_time #ms
+synapse_delay_delta_t = 12 #ms
 
 # Synaptic time constant
 tau_syn = 10 # ms

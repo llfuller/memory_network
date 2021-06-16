@@ -164,7 +164,7 @@ class I_sine():
         return I_ext
 
 class I_flat_alternating_steps():
-    def __init__(self, magnitude=30, I_dt=30, steps_height_list = [1,1,5,5,1,1,15,1,0,1,1]):
+    def __init__(self, magnitude=30, I_dt=30, steps_height_list = [5,5,5,5,10,10,10,10,5,5,5,0,0,0,5,5,0,0,0,0,0,0,0,0]):
         """
         Args:
             magnitude (float): magnitude of current supplied to all neurons at all times
@@ -180,22 +180,8 @@ class I_flat_alternating_steps():
         I_ext = self.magnitude * np.ones((N))
         if t<self.I_dt:
             I_ext *= self.steps_height_list[0]
-        if self.I_dt < t and t < 2*self.I_dt:
-            I_ext *= self.steps_height_list[1]
-        if 2*self.I_dt < t and t < 3*self.I_dt:
-            I_ext *= self.steps_height_list[2]
-        if 3*self.I_dt < t and t < 4*self.I_dt:
-            I_ext *= self.steps_height_list[4]
-        if 4*self.I_dt < t and t < 5*self.I_dt:
-            I_ext *= self.steps_height_list[5]
-        if 5*self.I_dt < t and t < 6*self.I_dt:
-            I_ext *= self.steps_height_list[6]
-        if 6*self.I_dt < t and t < 7*self.I_dt:
-            I_ext *= self.steps_height_list[7]
-        if 7*self.I_dt < t and t < 8*self.I_dt:
-            I_ext *= self.steps_height_list[8]
-        if 8*self.I_dt < t and t < 9*self.I_dt:
-            I_ext *= self.steps_height_list[9]
-        if 9*self.I_dt < t and t < 10*self.I_dt:
-            I_ext *= self.steps_height_list[10]
+        for i in range(1,len(steps_height_list)):
+            if i*self.I_dt < t and t < (i+1)*self.I_dt:
+                I_ext *= self.steps_height_list[i]
+
         return I_ext
