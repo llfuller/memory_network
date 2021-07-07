@@ -29,12 +29,12 @@ np.random.seed(2021)
 # (N=360,  time_total=500)
 
 # Number of neurons
-N = 1000
+N = 500
 
 # Timekeeping (units in milliseconds)
 dt = 0.1
 time_start = 0.0
-time_total = 500.0
+time_total = 800.0
 timesteps = int(float(time_total)/dt) # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 print(np.shape(times_array))
@@ -42,9 +42,10 @@ print(np.shape(times_array))
 # current_object = currents.I_flat(magnitude=0.5)
 # current_object = currents.I_flat_random_noise(magnitude=10, density=0.3)
 # current_object = currents.I_flat_random_targets(N, magnitude=10, density=0.1)
-
-current_object = currents.multiply_multi_current_object([currents.I_flat_alternating_steps(magnitude=3),
-                                                        currents.I_flat_random_targets(N, magnitude=1.0, density=0.01)])
+steps_height_list = [5,5,0,0,0]
+steps_height_list = [5,5,5,5,5,5,0,0,0,0,0,0,0,0,0,0]
+current_object = currents.multiply_multi_current_object([currents.I_flat_alternating_steps(magnitude=3, I_dt = 50, steps_height_list = steps_height_list),
+                                                        currents.I_flat_random_targets(N, magnitude=1.0, density=0.1)])
 
 # current_object = currents.I_sine(I_max=30)
 external_current = current_object.function
@@ -59,7 +60,7 @@ state_random_std_dev_noise = 0.4
 ########################################################################################################################
 
 R = 1
-C = 10
+C = 25 # capacitance; larger C leads to smaller effect of stimulus on a neuron's voltage
 threshold = 10
 V_reset = 0
 refractory_time = 4 # ms
@@ -69,17 +70,17 @@ refractory_time = 4 # ms
 ########################################################################################################################
 # Synaptic weight bounds (dimensionless)
 l_bound = 0
-u_bound = 10
+u_bound = 5
 stats_scale = u_bound - l_bound # used for "scale" argument in data_rvs argument of scipy sparse random method
 
 # Synapse density (1 = fully connected, 0 = never any connection)
-synapse_density = 0.1
+synapse_density = 0.03
 
 # Synaptic conductance scaling factor
-g_syn_max = 0.5
+g_syn_max = 1
 
 # Delay between presynaptic neuron firing and effect on postsynaptic neuron feeling effect
-synapse_delay_delta_t = 12 #ms
+synapse_delay_delta_t = 7 #ms
 
 # Synaptic time constant
 tau_syn = 10 # ms
@@ -89,7 +90,7 @@ tau_syn = 10 # ms
 # Not totally necessary but I'll implement it here anyway
 E_syn_excitatory = 15 # arbitrarily decided values
 E_syn_inhibitory = 0
-ei_threshold = 0.9# "excite-inhibit threshold". A number between 0 and 1. Percentage of connections which are inhibitory
+ei_threshold = 0.85# "excite-inhibit threshold". A number between 0 and 1. Percentage of connections which are inhibitory
 E_syn = np.zeros((N))
 for n in range(N):
     random_num = np.random.uniform(0,1)
@@ -99,7 +100,7 @@ for n in range(N):
 # STDP-related variables
 use_STDP = False # Control whether STDP is used to adapt synaptic weights or not
 tau_W = 3 # ms
-STDP_scaling = 1.0
+STDP_scaling = 10.0
 
 ########################################################################################################################
 # Initial Conditions and Preparing to Solve
@@ -124,8 +125,12 @@ spike_list = [[] for i in range(N)] # Need N separate empty lists to record spik
 last_firing_array = np.zeros((times_array.shape[0], N))
 
 # Combine Vnmh and synaptic initial conditions into a single vector
+
 flattened_initial_V_states = state_initial_V_array.flatten() # shape(4*N)
-flattened_initial_synapse_states = (scipy.sparse.csr_matrix(state_initial_synaptic).toarray()).flatten() # shape(N*N)
+# remove diagonal synaptic weights
+matrix_initial_synapse_states = scipy.sparse.csr_matrix(state_initial_synaptic).toarray()
+np.fill_diagonal(matrix_initial_synapse_states, val = 0)
+flattened_initial_synapse_states = matrix_initial_synapse_states.flatten() # shape(N*N)
 
 # Combined shape is (N*(2+N))
 flattened_initial_states = np.concatenate((flattened_initial_V_states, flattened_initial_synapse_states))

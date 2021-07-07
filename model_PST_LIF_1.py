@@ -50,6 +50,7 @@ def PST_LIF_1_network(state_initial, times_array,
         # Adapt weights into postsynaptic neurons (index i) that have just fired according to V_t_above_thresh
         if use_STDP:
             timing_difference = np.subtract.outer(last_firing_times, last_firing_times)  # positive if pre spiked first
+            # timing_difference[timing_difference<0] = 0
             delta_W = STDP_scaling \
                            * np.multiply(np.sign(timing_difference), np.exp(-np.abs(timing_difference)/tau_W))
             delta_W[W==0] = 0 # Make sure cells without connections do not develop them

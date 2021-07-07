@@ -94,6 +94,7 @@ class I_flat_random_targets():
         #         if(an_el!=0):
         #             print((i))
         # print(I_ext[:30])
+        # print(np.sum(I_ext))
         return I_ext
 
 
@@ -164,7 +165,7 @@ class I_sine():
         return I_ext
 
 class I_flat_alternating_steps():
-    def __init__(self, magnitude=30, I_dt=30, steps_height_list = [5,5,5,5,10,10,10,10,5,5,5,0,0,0,5,5,0,0,0,0,0,0,0,0]):
+    def __init__(self, magnitude=30, I_dt=100, steps_height_list = [5,5,5,5,0]):
         """
         Args:
             magnitude (float): magnitude of current supplied to all neurons at all times

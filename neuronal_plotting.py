@@ -70,3 +70,4 @@ def make_raster_plot(N, spike_list, use_STDP, extra_descriptors=''):
         plt.title('Spike Timings without STDP')
     plt.grid(True, axis='y')
     plt.savefig('plots/Raster;STDP='+ str(use_STDP) +';'+ extra_descriptors)
+    plt.show()
