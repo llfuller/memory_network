@@ -59,8 +59,6 @@ def run_LIF_network(current_object,
         # STDP_scaling = 10.0,
     """
 
-    np.random.seed(2021)
-
     # Combinations that max RAM if using W_t = (timesteps,N,N):
     # (N=1100, time_total=50)
     # (N=600,  time_total=200)
@@ -74,16 +72,6 @@ def run_LIF_network(current_object,
     timesteps = int(float(time_total)/dt) # total number of intervals to evaluate solution at
     times_array = np.linspace(time_start, time_start + time_total, timesteps)
     print(np.shape(times_array))
-    # Imported current
-    # current_object = currents.I_flat(magnitude=0.5)
-    # current_object = currents.I_flat_random_noise(magnitude=10, density=0.3)
-    # current_object = currents.I_flat_random_targets(N, magnitude=10, density=0.1)
-    steps_height_list = [5,5,0,0,0]
-    steps_height_list = [5,5,5,5,5,5,0,0,0,0,0,0,0,0,0,0]
-    current_object = currents.multiply_multi_current_object([currents.I_flat_alternating_steps(magnitude=3, I_dt = 50, steps_height_list = steps_height_list),
-                                                            currents.I_flat_random_targets(N, magnitude=1.0, density=0.1)])
-
-    # current_object = currents.I_sine(I_max=30)
     external_current = current_object.function
     # extra descriptors for file name and sometimes plot titles; often contains current name
     extra_descriptors = current_object.name + ';'+current_object.extra_descriptors
@@ -158,7 +146,6 @@ def run_LIF_network(current_object,
                              E_syn, tau_syn, spike_list, use_STDP, STDP_scaling, tau_W,
                              synapse_delay_delta_t)
 
-
     ########################################################################################################################
     # Solve system
     ########################################################################################################################
@@ -191,11 +178,20 @@ def run_LIF_network(current_object,
 
     return [sol_V_t, W_final, times_array, timesteps, spike_list, extra_descriptors]
 
+np.random.seed(2021)
 
 N = 500
 use_STDP = False
 
-driving_current = currents.sum_multi_current_object([currents.I_flat_random_targets(N, magnitude=20)])
+# Imported current
+# current_object = currents.I_flat(magnitude=0.5)
+# current_object = currents.I_flat_random_noise(magnitude=10, density=0.3)
+# current_object = currents.I_flat_random_targets(N, magnitude=10, density=0.1)
+# current_object = currents.I_sine(I_max=30)
+steps_height_list = [5, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+driving_current = currents.multiply_multi_current_object(
+    [currents.I_flat_alternating_steps(magnitude=3, I_dt=50, steps_height_list=steps_height_list),
+     currents.I_flat_random_targets(N, magnitude=1.0, density=0.1)])
 
 params = {
         # current_object
