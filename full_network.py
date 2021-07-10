@@ -32,12 +32,12 @@ class full_network():
             list_of_connected_networks.append(self.dict_of_networks['network_x_name'])
 
     def run(self, times_array, dt):
-        for time_index, t in enumerate(self.times_array[:-1]):
+        for time_index, t in enumerate(times_array[:-1]):
             # progress full network voltage a single timestep
-            for a_subnetwork in self.list_of_networks:
+            for a_subnetwork in self.dict_of_networks.values():
                 a_subnetwork.integrate_voltages_forward_by_dt(t, time_index, dt)
             # progress subnetwork internal synaptic connections a single timestep
-            for a_subnetwork in self.list_of_networks:
+            for a_subnetwork in self.dict_of_networks.values():
                 a_subnetwork.integrate_internal_W_forward_by_dt(t, time_index, dt)
             # progress network-to-network synaptic connections in a single timestep
             for a_set_of_connections in self.list_of_internetwork_synapses:
@@ -47,6 +47,8 @@ class full_network():
         result_list = []
         for a_subnetwork in self.dict_of_networks.values():
             result_list.append(a_subnetwork.return_results())
+        result_list
+        return result_list
 
 
 

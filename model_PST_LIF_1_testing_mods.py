@@ -1,11 +1,13 @@
 import numpy as np
+from spike_methods import *
 import matplotlib.pyplot as plt
 
 class LIF_network():
 
     def __init__(self, state_initial, times_array, N, I_instr_t, R, C, threshold,
                  last_firing_times, V_reset, refractory_time, g_syn_max,
-                 E_syn, tau_syn, spike_list, use_STDP, STDP_scaling, tau_W, synapse_delay_delta_t):
+                 E_syn, tau_syn, use_STDP, STDP_scaling, tau_W,
+                 synapse_delay_delta_t, bogus_spike_time):
         self.state_initial = state_initial
         self.times_array = times_array
         self.N = N
@@ -19,7 +21,6 @@ class LIF_network():
         self.g_syn_max = g_syn_max
         self.E_syn = E_syn
         self.tau_syn = tau_syn
-        self.spike_list = spike_list
         self.use_STDP = use_STDP
         self.STDP_scaling = STDP_scaling
         self.tau_W = tau_W
@@ -42,6 +43,12 @@ class LIF_network():
         self.V_t_above_thresh = None
         self.V_t_below_reset = None
 
+        # bogus stand-in spike time to be replaced later in the computation
+        self.bogus_spike_time = bogus_spike_time
+
+        self.spike_list = [[] for i in range(N)]  # Filled in return_results(self).
+        # Need N separate empty lists to record spike times to
+
 
     def integrate_voltages_forward_by_dt(self, t, time_index, dt):
         self.alpha = dt / self.C
@@ -58,7 +65,9 @@ class LIF_network():
 
         # Leaky integrate (decay + external lab currents; note external currents can create asynchronous firing)
         self.V_t[time_index+1,:] = (1-self.beta)*self.V_t[time_index,:]
-        self.V_t[time_index+1,:] += self.alpha * self.I_instr_t(self.N,t)
+        # External stimuli (from wire or sensing organ):
+        for I_ext in self.list_of_external_stimulus_functions:
+            self.V_t[time_index+1,:] += self.alpha * I_ext(self.N,t)
         # Add synaptic currents due to firing
         self.V_t[time_index + 1, :] += self.alpha * \
                                   np.multiply(np.matmul(self.W,
@@ -94,4 +103,10 @@ class LIF_network():
             self.W += self.delta_W
 
     def return_results(self):
-        return [self.V_t, self.W, self.last_firing_array]
+        self.spike_list = process_spike_results(self.last_firing_array, self.bogus_spike_time, self.N)
+
+        # just for saving stuff:
+        # spike_list_array = spike_list_to_array(self.N, spike_list)  # array dimension(N, ???)
+        # np.savetxt('spike_data/spike_list;' + extra_descriptors + '.txt', spike_list_array, fmt='%.3e')
+
+        return [self.V_t, self.W, self.times_array, self.spike_list]
