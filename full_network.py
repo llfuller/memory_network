@@ -1,4 +1,3 @@
-import numpy as np
 import synaptic_weights
 # A full network constructed by linking together smaller networks
 
@@ -24,8 +23,8 @@ class full_network():
                              synapse_density, l_bound, stats_scale,
                              STDP_method = None):
         """
-        :param network_x: (type network object; ex: LIF_network) Closer to sensory data ("upstream")
-        :param network_y: (type network object; ex: LIF_network) Further from sensory data ("downstream")
+        :param network_x: (type network object; ex: LIF_network)
+        :param network_y: (type network object; ex: LIF_network)
         :param synapse_density: (type: float) (1 = fully connected, 0 = never any connection)
         :param l_bound: (type: float) Synaptic weight bounds (dimensionless)
         :param stats_scale: (type: float) u_bound - l_bound
@@ -40,12 +39,11 @@ class full_network():
             synapse_density,
             l_bound,
             stats_scale,
-            STDP_method
+            STDP_method,
+            x_to_y_only = True
         ) # put a synapse W generation function here later
 
         new_connection = [network_x, network_y, internetwork_synapse_W, STDP_method]
-        print("new connection is")
-        print(new_connection)
         self.list_of_internetwork_synapses.append(new_connection)
         # Store references to network y in network x (and vice versa) for easy access during
         # voltage updates
@@ -81,7 +79,6 @@ class full_network():
         result_dict = {}
         for a_subnetwork in self.dict_of_networks.values():
             result_dict[a_subnetwork.name] = a_subnetwork.return_results()
-            print(a_subnetwork.name)
         return result_dict
 
 

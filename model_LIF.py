@@ -1,6 +1,4 @@
-import numpy as np
 from spike_methods import *
-import matplotlib.pyplot as plt
 from scipy import sparse
 
 class LIF_network():

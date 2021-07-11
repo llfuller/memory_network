@@ -1,5 +1,5 @@
-
 import scipy
+from scipy import stats
 import numpy as np
 def make_internal_weights(N, synapse_density, l_bound, stats_scale):
     """
@@ -36,14 +36,16 @@ class internetwork_weights():
         self.tau_syn = 10
 
 
-    def make_network_to_network_weights(self, network_x, network_y, synapse_density, l_bound, stats_scale, STDP_method):
+    def make_network_to_network_weights(self, network_x, network_y, synapse_density, l_bound, stats_scale, STDP_method,
+                                        x_to_y_only = True):
         """
-        :param network_x: (type network object; ex: LIF_network) Closer to sensory data ("upstream")
-        :param network_y: (type network object; ex: LIF_network) Further from sensory data ("downstream")
+        :param network_x: (type network object; ex: LIF_network)
+        :param network_y: (type network object; ex: LIF_network)
         :param synapse_density: 1 = fully connected, 0 = never any connection
         :param l_bound: lower Synaptic weight bounds (dimensionless)
         :param stats_scale: used for "scale" argument in data_rvs argument of scipy sparse random method
         :param STDP_method: (type: boolean)
+        :param x_to_y_only: (type: boolean) If True, then network_x acts on network_y, but the opposite is not true
         :return: uniformly randomized synaptic weights between neurons between two networks, with zeros on diagonal
         """
         N_x = network_x.N
@@ -55,6 +57,8 @@ class internetwork_weights():
 
         state_initial_synaptic = scipy.sparse.random(N_x, N_y, density=synapse_density,
                                                      data_rvs=scipy.stats.uniform(loc=l_bound, scale=stats_scale).rvs)
+        if x_to_y_only:
+            state_initial_synaptic *= 0
         self.W_sparse_y_to_x = scipy.sparse.csr_matrix(state_initial_synaptic)
         self.W_y_to_x = self.W_sparse_y_to_x.toarray()
 

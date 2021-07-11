@@ -1,11 +1,9 @@
 from full_network import full_network
 import numpy as np
 import externally_provided_currents as currents
-from model_PST_LIF_1_testing_mods import LIF_network
 from neuronal_plotting import plot_many_neurons_simultaneous
 from neuronal_plotting import make_raster_plot
-from spike_methods import process_spike_results
-from run_PST_LIF_1_testing_mods import build_LIF_network
+from builder_LIF import build_LIF_network
 
 import time as time
 
@@ -15,7 +13,7 @@ import time as time
 np.random.seed(2021)
 
 
-N_generic = 300
+N_generic = 500
 use_STDP = False
 
 # Import observed "sound" data, 1-D. If not imported, then use artificial data
@@ -39,7 +37,7 @@ data_3 = external_current_function
 # Time stuff
 dt = 0.1
 time_start = 0.0
-time_total = 100.0
+time_total = 800.0
 timesteps = int(float(time_total) / dt)  # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 
@@ -55,7 +53,7 @@ sensory_subnetwork_args = {
     'time_start' : 0.0, # ms
     'time_total': 800.0,  # ms
     # Synapse density (1 = fully connected, 0 = never any connection)
-    'synapse_density': 0.02,
+    'synapse_density': 0.01,
     # Synaptic conductance scaling factor
     'g_syn_max': 1,
     # Delay between presynaptic neuron firing and effect on postsynaptic neuron feeling effect
@@ -98,9 +96,6 @@ total_network.set_subnetworks({'network_1' : network_1,
                                'network_3' : network_3,
                                'network_mix': network_mix
                                })
-# total_network.set_subnetworks({'network_1' : network_1,
-#                                 'network_mix': network_mix
-#                                })
 
 ########################################################################################################################
 # Connect networks to input stimulus
@@ -136,8 +131,8 @@ print("Program took " + str(round(time.time() - start_time, 2)) + " seconds to r
 total_results_dict = total_network.organize_results()
 network_1_results, network_2_results, network_3_results, network_mix_results = total_results_dict
 
+# Save and plot subnetwork results for all subnetworks within the full_network:
 for subnetwork_name, subnetwork_results in total_results_dict.items():
-    # V_t_mix, W_mix, times_array_mix, spike_list_mix = network_mix_results
     V_t, W, times_array, spike_list = subnetwork_results
 
     ########################################################################################################################
@@ -150,7 +145,6 @@ for subnetwork_name, subnetwork_results in total_results_dict.items():
                W, fmt='%.3e')
     # np.savetxt('spike_data/spike_list_mix;' + extra_descriptors + '.txt', spike_list_to_array(network_mix.N, spike_list), fmt='%.3e')
 
-    # Plot results from network_mix:
     # Plot the active neurons
     make_raster_plot(N_generic, spike_list, use_STDP, extra_descriptors, subnetwork_name=subnetwork_name)
     # Plot the active neurons

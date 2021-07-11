@@ -1,14 +1,7 @@
-from model_PST_LIF_1_testing_mods import LIF_network
-from neuronal_plotting import plot_many_neurons_simultaneous
-from neuronal_plotting import make_raster_plot
-from spike_methods import spike_list_to_array
-import externally_provided_currents as currents
+from model_LIF import LIF_network
 import numpy as np
 import synaptic_weights
-from scipy.integrate import odeint
-import time as time
-import scipy.sparse
-from scipy import stats
+
 
 ########################################################################################################################
 #
@@ -88,11 +81,6 @@ def build_LIF_network(current_object,
         u_bound = 5
 
     """
-
-    # Combinations that max RAM if using W_t = (timesteps,N,N):
-    # (N=1100, time_total=50)
-    # (N=600,  time_total=200)
-    # (N=360,  time_total=500)
 
     external_current = current_object.function
 
