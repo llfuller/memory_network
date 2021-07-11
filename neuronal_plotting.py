@@ -36,7 +36,7 @@ def plot_many_neurons(N, times_array, sol):
         plt.xlabel('Time (ms)')
         plt.show()
 
-def plot_many_neurons_simultaneous(N, times_array, sol, use_STDP, extra_descriptors=''):
+def plot_many_neurons_simultaneous(N, times_array, sol, use_STDP, extra_descriptors='',subnetwork_name=''):
     # sol has shape (timesteps, 4 or 2, N)
     plt.figure()
 
@@ -46,12 +46,12 @@ def plot_many_neurons_simultaneous(N, times_array, sol, use_STDP, extra_descript
         plt.ylabel('Voltage (mV)')
         plt.xlabel('Time (ms)')
         if use_STDP == True:
-            plt.title('Voltages with STDP')
+            plt.title('Voltages with STDP; '+str(subnetwork_name))
         else:
-            plt.title('Voltages without STDP')
-    plt.savefig('plots/V;STDP='+ str(use_STDP) +';'+ extra_descriptors)
+            plt.title('Voltages without STDP; '+str(subnetwork_name))
+    plt.savefig('plots/V_'+str(subnetwork_name)+';STDP='+ str(use_STDP) +';'+ extra_descriptors)
 
-def make_raster_plot(N, spike_list, use_STDP, extra_descriptors=''):
+def make_raster_plot(N, spike_list, use_STDP, extra_descriptors='',subnetwork_name=''):
     # Makes raster plot of neuron spikes
     number_list = []
     spike_list_flattened = []
@@ -65,9 +65,9 @@ def make_raster_plot(N, spike_list, use_STDP, extra_descriptors=''):
     plt.xlabel('Time (ms)')
     plt.ylabel('Neuron Label')
     if use_STDP == True:
-        plt.title('Spike Timings with STDP')
+        plt.title('Spike Timings with STDP; '+str(subnetwork_name))
     else:
-        plt.title('Spike Timings without STDP')
+        plt.title('Spike Timings without STDP; '+str(subnetwork_name))
     plt.grid(True, axis='y')
-    plt.savefig('plots/Raster;STDP='+ str(use_STDP) +';'+ extra_descriptors)
+    plt.savefig('plots/Raster_'+str(subnetwork_name)+';STDP='+ str(use_STDP) +';'+ extra_descriptors)
     plt.show()

@@ -15,11 +15,11 @@ import time as time
 np.random.seed(2021)
 
 
-N_generic = 500
+N_generic = 300
 use_STDP = False
 
 # Import observed "sound" data, 1-D. If not imported, then use artificial data
-steps_height_list = [5, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+steps_height_list = [5, 5, 5, 0, 0, 0, 5, 5, 5, 0, 0, 0, 5, 5, 5, 5]
 current_object = currents.multiply_multi_current_object(
     [currents.I_flat_alternating_steps(magnitude=3, I_dt=50, steps_height_list=steps_height_list),
      currents.I_flat_random_targets(N_generic, magnitude=1.0, density=0.1)])
@@ -39,14 +39,14 @@ data_3 = external_current_function
 # Time stuff
 dt = 0.1
 time_start = 0.0
-time_total = 800.0
+time_total = 100.0
 timesteps = int(float(time_total) / dt)  # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 
 ########################################################################################################################
 # LIF parameters
 ########################################################################################################################
-args_123 = {
+sensory_subnetwork_args = {
     # current_object
     'current_object': current_object,
     # Number of neurons
@@ -55,7 +55,7 @@ args_123 = {
     'time_start' : 0.0, # ms
     'time_total': 800.0,  # ms
     # Synapse density (1 = fully connected, 0 = never any connection)
-    'synapse_density': 0.03,
+    'synapse_density': 0.02,
     # Synaptic conductance scaling factor
     'g_syn_max': 1,
     # Delay between presynaptic neuron firing and effect on postsynaptic neuron feeling effect
@@ -84,21 +84,22 @@ args_123 = {
     'times_array' : times_array
 }
 
-args_mix = args_123.copy()
+mix_subnetwork_args = sensory_subnetwork_args.copy()
 # Build network objects
-network_1 = build_LIF_network(**args_123)#, STDP_method = STDP_function_interior_1)
-# network_2 = build_LIF_network(**args_123)#, STDP_method = STDP_function_interior_1)
-# network_3 = build_LIF_network(**args_123)#, STDP_method = STDP_function_interior_1)
-# network_mix = build_LIF_network(**args_mix)#, STDP_method = STDP_function_interior_1)
+network_1 = build_LIF_network(**sensory_subnetwork_args, network_name = 'network_1')#, STDP_method = STDP_function_interior_1)
+network_2 = build_LIF_network(**sensory_subnetwork_args, network_name = 'network_2')#, STDP_method = STDP_function_interior_1)
+network_3 = build_LIF_network(**sensory_subnetwork_args, network_name = 'network_3')#, STDP_method = STDP_function_interior_1)
+network_mix = build_LIF_network(**mix_subnetwork_args, network_name = 'network_mix')#, STDP_method = STDP_function_interior_1)
 
 # Create a "full network" object to hold and connect the subnetworks
 total_network = full_network()
-total_network.set_subnetworks({'network_1' : network_1})
-
+total_network.set_subnetworks({'network_1' : network_1,
+                               'network_2' : network_2,
+                               'network_3' : network_3,
+                               'network_mix': network_mix
+                               })
 # total_network.set_subnetworks({'network_1' : network_1,
-#                                'network_2' : network_2,
-#                                'network_3' : network_3,
-#                                'network_mix': network_mix
+#                                 'network_mix': network_mix
 #                                })
 
 ########################################################################################################################
@@ -106,8 +107,8 @@ total_network.set_subnetworks({'network_1' : network_1})
 ########################################################################################################################
 # total_network.connect_to_input_data(data_x, network_y); within the total network, uses data_x as stimulus to network_y
 total_network.connect_to_input_data(data_1, network_1)
-# total_network.connect_to_input_data(data_2, network_2)
-# total_network.connect_to_input_data(data_3, network_3)
+total_network.connect_to_input_data(data_2, network_2)
+total_network.connect_to_input_data(data_3, network_3)
 
 ########################################################################################################################
 # Connect networks to networks, with STDP where necessary
@@ -115,40 +116,43 @@ total_network.connect_to_input_data(data_1, network_1)
 
 # connect_two_networks(network_x, network_y, STDP_method = STDP_function_z); within the total network,
 # connects network_x (presyn) to network_y (postsyn), with STDP_function_z
-# total_network.connect_two_networks(network_1, network_mix, STDP_method = STDP_function_1_mix)
-# total_network.connect_two_networks(network_2, network_mix, STDP_method = STDP_function_2_mix)
-# total_network.connect_two_networks(network_3, network_mix, STDP_method = STDP_function_3_mix)
+total_network.connect_two_networks(network_1, network_mix, synapse_density = 0.03,
+                                   l_bound = 0, stats_scale = 5-0, STDP_method = None)
+total_network.connect_two_networks(network_2, network_mix, synapse_density = 0.03,
+                                   l_bound = 0, stats_scale = 5-0, STDP_method = None)
+total_network.connect_two_networks(network_3, network_mix, synapse_density = 0.03,
+                                   l_bound = 0, stats_scale = 5-0, STDP_method = None)
 
 ########################################################################################################################
 # Solve system
 ########################################################################################################################
 # Run all networks simultaneously (with STDP on or off) and output results
-print("Running " + str(N_generic) + " neurons for " + str(timesteps) + " timesteps of size " + str(dt))
+print("Running " + str(N_generic) + " neurons for " + str(timesteps) + " timesteps of size " + str(dt)+"ms")
 start_time = time.time()
 total_network.run(times_array, dt)
-print("Program took " + str(time.time() - start_time) + " seconds to run.")
+print("Program took " + str(round(time.time() - start_time, 2)) + " seconds to run.")
 
 # Process spike results into a more manageable form:
-# network_1_results, network_2_results, network_3_results, network_mix_results = total_network.organize_results()
-network_1_results = total_network.organize_results()
+total_results_dict = total_network.organize_results()
+network_1_results, network_2_results, network_3_results, network_mix_results = total_results_dict
 
+for subnetwork_name, subnetwork_results in total_results_dict.items():
+    # V_t_mix, W_mix, times_array_mix, spike_list_mix = network_mix_results
+    V_t, W, times_array, spike_list = subnetwork_results
 
-# V_t_mix, W_mix, times_array_mix, spike_list_mix = network_mix_results
-V_t_mix, W_mix, times_array_mix, spike_list_mix = network_1_results[0]
+    ########################################################################################################################
+    # Saving data
+    ########################################################################################################################
+    # Save voltage and weights
+    np.savetxt('voltages/V_' + str(subnetwork_name)+';STDP=' + str(use_STDP) + ';' + str(extra_descriptors) + '.txt',
+               V_t.reshape(timesteps, 1, N_generic)[:, 0, :], fmt='%.3e')
+    np.savetxt('modified_weights/W_' + str(subnetwork_name)+';STDP=' + str(use_STDP) + ';' + str(extra_descriptors) + '.txt',
+               W, fmt='%.3e')
+    # np.savetxt('spike_data/spike_list_mix;' + extra_descriptors + '.txt', spike_list_to_array(network_mix.N, spike_list), fmt='%.3e')
 
-########################################################################################################################
-# Saving data
-########################################################################################################################
-# Save voltage and weights
-np.savetxt('voltages/V_mix;STDP=' + str(use_STDP) + ';' + str(extra_descriptors) + '.txt',
-           V_t_mix.reshape(timesteps, 1, N_generic)[:, 0, :], fmt='%.3e')
-np.savetxt('modified_weights/W_mix;STDP=' + str(use_STDP) + ';' + str(extra_descriptors) + '.txt',
-           W_mix, fmt='%.3e')
-# np.savetxt('spike_data/spike_list_mix;' + extra_descriptors + '.txt', spike_list_to_array(network_mix.N, spike_list), fmt='%.3e')
-
-# Plot results from network_mix:
-# Plot the active neurons
-make_raster_plot(N_generic, spike_list_mix, use_STDP, extra_descriptors)
-# Plot the active neurons
-plot_many_neurons_simultaneous(N_generic, times_array, V_t_mix.reshape(timesteps, 1, N_generic), use_STDP,
-                               extra_descriptors)
+    # Plot results from network_mix:
+    # Plot the active neurons
+    make_raster_plot(N_generic, spike_list, use_STDP, extra_descriptors, subnetwork_name=subnetwork_name)
+    # Plot the active neurons
+    plot_many_neurons_simultaneous(N_generic, times_array, V_t.reshape(timesteps, 1, N_generic), use_STDP,
+                                   extra_descriptors, subnetwork_name=subnetwork_name)

@@ -1,5 +1,5 @@
 import numpy as np
-
+import synaptic_weights
 # A full network constructed by linking together smaller networks
 
 class full_network():
@@ -13,25 +13,51 @@ class full_network():
         self.dict_of_networks.update(dict_of_networks)
 
     def connect_to_input_data(self, data_function, network_y):
-        # connect networks to stimulus introduced by artificial wires or
+        # Connect networks to stimulus introduced by artificial wires or
         # from sensory organs such as the ear.
         # data_function should take time t as an argument
+        # Note: Networks don't need to be part of this full network to be linked to data by this method
+        #       Perhaps that should be changed
         network_y.list_of_external_stimulus_functions.append(data_function)
 
-    def connect_two_networks(self, network_x_name, network_y_name, STDP_method = None):
+    def connect_two_networks(self, network_x, network_y,
+                             synapse_density, l_bound, stats_scale,
+                             STDP_method = None):
+        """
+        :param network_x: (type network object; ex: LIF_network) Closer to sensory data ("upstream")
+        :param network_y: (type network object; ex: LIF_network) Further from sensory data ("downstream")
+        :param synapse_density: (type: float) (1 = fully connected, 0 = never any connection)
+        :param l_bound: (type: float) Synaptic weight bounds (dimensionless)
+        :param stats_scale: (type: float) u_bound - l_bound
+        :param STDP_method:
+        """
         # Store in full_network member list all links between subnetworks for later
         # updating if STDP != None
-        internetwork_synapse_W = None # put a synapse W generation function here later
-        self.list_of_internetwork_synapses.append([network_x_name, network_y_name,
-                                                   internetwork_synapse_W, STDP_method])
+        internetwork_synapse_W = synaptic_weights.internetwork_weights()
+        internetwork_synapse_W.make_network_to_network_weights(
+            network_x,
+            network_y,
+            synapse_density,
+            l_bound,
+            stats_scale,
+            STDP_method
+        ) # put a synapse W generation function here later
+
+        new_connection = [network_x, network_y, internetwork_synapse_W, STDP_method]
+        print("new connection is")
+        print(new_connection)
+        self.list_of_internetwork_synapses.append(new_connection)
         # Store references to network y in network x (and vice versa) for easy access during
         # voltage updates
-        self.dict_of_networks['network_x_name'].\
-            list_of_connected_networks.append(self.dict_of_networks['network_y_name'])
-        self.dict_of_networks['network_y_name']. \
-            list_of_connected_networks.append(self.dict_of_networks['network_x_name'])
+        network_x.dict_of_connected_networks[network_y.name] = new_connection
+        network_y.dict_of_connected_networks[network_x.name] = new_connection
 
     def run(self, times_array, dt):
+        """Computes state of full network at all times in times_array
+
+        :param times_array: array of all times network states are computed for; units are ms
+        :param dt: size of timesteps in ms
+        """
         for time_index, t in enumerate(times_array[:-1]):
             # progress full network voltage a single timestep
             for a_subnetwork in self.dict_of_networks.values():
@@ -40,15 +66,23 @@ class full_network():
             for a_subnetwork in self.dict_of_networks.values():
                 a_subnetwork.integrate_internal_W_forward_by_dt(t, time_index, dt)
             # progress network-to-network synaptic connections in a single timestep
-            for a_set_of_connections in self.list_of_internetwork_synapses:
-                a_set_of_connections.integrate_external_W_forward_by_dt(t, time_index, dt)
+            for a_list_for_connections in self.list_of_internetwork_synapses:
+                internetwork_synapse_W = a_list_for_connections[2]
+                internetwork_synapse_W.integrate_external_W_forward_by_dt(t, time_index, dt)
 
     def organize_results(self):
-        result_list = []
+        """
+        :returns all subnetwork voltages, spikes, etc in dict.
+        Key is name of network.
+        Value is a list of lists:
+        List layer 0 is each subnetwork of the full_network.
+        List layer 1 is voltages, spikes, etc.
+        """
+        result_dict = {}
         for a_subnetwork in self.dict_of_networks.values():
-            result_list.append(a_subnetwork.return_results())
-        result_list
-        return result_list
+            result_dict[a_subnetwork.name] = a_subnetwork.return_results()
+            print(a_subnetwork.name)
+        return result_dict
 
 
 

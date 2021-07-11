@@ -4,6 +4,7 @@ from neuronal_plotting import make_raster_plot
 from spike_methods import spike_list_to_array
 import externally_provided_currents as currents
 import numpy as np
+import synaptic_weights
 from scipy.integrate import odeint
 import time as time
 import scipy.sparse
@@ -40,7 +41,8 @@ def build_LIF_network(current_object,
                         # Synaptic weight bounds (dimensionless)
                         l_bound = 0,
                         u_bound = 5,
-                        times_array = None
+                        times_array = None,
+                        network_name = None
 
     ):
     """
@@ -50,8 +52,8 @@ def build_LIF_network(current_object,
         # N = 500
         # dt = 0.1 # ms
         # time_total = 800.0 # ms
-        #     # Synapse density (1 = fully connected, 0 = never any connection)
-        #     synapse_density = 0.03
+        # Synapse density (1 = fully connected, 0 = never any connection)
+        # synapse_density = 0.03
         # Synaptic conductance scaling factor
         # g_syn_max = 1
         # Delay between presynaptic neuron firing and effect on postsynaptic neuron feeling effect
@@ -92,11 +94,6 @@ def build_LIF_network(current_object,
     # (N=600,  time_total=200)
     # (N=360,  time_total=500)
 
-    # Combinations that max RAM if using W = (N,N):
-    # (N=1100, time_total=50)
-    # (N=600,  time_total=200)
-    # (N=360,  time_total=500)
-
     external_current = current_object.function
 
     # Synaptic weight bounds (dimensionless)
@@ -121,33 +118,25 @@ def build_LIF_network(current_object,
 
     # randomly initialize sparse synaptic weights
     # Synaptic connections have shape (N,N), from interval [-1,1)
-    state_initial_synaptic = scipy.sparse.random(N,N, density = synapse_density,
-                                                 data_rvs=scipy.stats.uniform(loc=l_bound, scale=stats_scale).rvs)
+    matrix_initial_synapse_states = synaptic_weights.make_internal_weights(N, synapse_density, l_bound, stats_scale)
     # bogus stand-in spike time to be replaced
     bogus_spike_time = -10000
     last_firing_times = bogus_spike_time*np.ones((N)) # large negative number so it isn't considered firing at beginning
 
-    # List for spike times to be recorded to
-    spike_list = [[] for i in range(N)] # Need N separate empty lists to record spike times to
-
     # Combine Vnmh and synaptic initial conditions into a single vector
-
     flattened_initial_V_states = state_initial_V_array.flatten() # shape(4*N)
-    # remove diagonal synaptic weights
-    matrix_initial_synapse_states = scipy.sparse.csr_matrix(state_initial_synaptic).toarray()
-    np.fill_diagonal(matrix_initial_synapse_states, val = 0)
     flattened_initial_synapse_states = matrix_initial_synapse_states.flatten() # shape(N*N)
 
     # Combined shape is (N*(2+N))
     flattened_initial_states = np.concatenate((flattened_initial_V_states, flattened_initial_synapse_states))
-    print(flattened_initial_states)
 
     ########################################################################################################################
     # Build system
     ########################################################################################################################
     network_1 = LIF_network(flattened_initial_states, times_array, N, external_current, R, C, threshold,
-                             last_firing_times, V_reset, refractory_time, g_syn_max,
-                             E_syn, tau_syn, use_STDP, STDP_scaling, tau_W,
-                             synapse_delay_delta_t, bogus_spike_time)
+                            last_firing_times, V_reset, refractory_time, g_syn_max,
+                            E_syn, tau_syn, use_STDP, STDP_scaling, tau_W,
+                            synapse_delay_delta_t, bogus_spike_time,
+                            network_name)
 
     return network_1
