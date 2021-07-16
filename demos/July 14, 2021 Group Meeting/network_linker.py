@@ -15,8 +15,10 @@ np.random.seed(2021)
 
 N_generic = 450
 
-# Import observed "sound" data (not yet implemented), 1-D. If not imported, then use artificial data
-
+# Import observed "sound" data, 1-D. If not imported, then use artificial data
+# steps_height_list_1 = [5,5, 5,5,  5,5, 5,5,  0,0, 0,0 , 0,0, 0,0,  0,0, 0,0]
+# steps_height_list_2 = [0,0, 0,0,  0,0, 0,0,  5,5, 5,5,  5,5, 0,0,  0,0, 0,0]
+# steps_height_list_3 = [0,0, 0,0,  0,0, 0,0,  0,0, 0,0 , 0,0, 5,5,  5,5, 5,5]
 steps_height_list_1 = [5,5, 5,5,  5,5, 5,5,  5,5, 0,0, 0,0, 0,0,  0,0, 0,0, # each row is 1000 ms
                        0,0, 0,0,  0,0, 0,0,  0,0, 0,0, 0,0, 0,0,  0,0, 0,0, 0,0, 0, 0,
                        0,0, 0,0,  0,0, 0,0,  0,0, 0,0, 0,0, 0,0,  0,0, 0,0,
@@ -51,7 +53,7 @@ data_1 = external_current_function_1
 data_2 = external_current_function_2
 data_3 = external_current_function_3
 
-# Convert sound data to F.T. (not yet implemented)
+# Convert sound data to F.T.
 
 
 # Time stuff
@@ -64,6 +66,43 @@ times_array = np.linspace(time_start, time_start + time_total, timesteps)
 ########################################################################################################################
 # LIF parameters
 ########################################################################################################################
+# sensory_subnetwork_args = {
+#     # current_object
+#     'current_object': current_object_1,
+#     # Number of neurons
+#     'N': N_generic,
+#     'dt': 0.1,  # ms
+#     'time_start' : time_start, # ms
+#     'time_total': time_total,  # ms
+#     # Synapse density (1 = fully connected, 0 = never any connection)
+#     'synapse_density': 0.1,
+#     # Synaptic conductance scaling factor
+#     'g_syn_max': 10,
+#     # Delay between presynaptic neuron firing and effect on postsynaptic neuron feeling effect
+#     'synapse_delay_delta_t': 7.0,  # ms
+#     # Synaptic time constant
+#     'tau_syn': 10,  # ms
+#     # Synaptic Nernst potentials
+#     # Each presynaptic neuron in this simulation is either inhibitory or excitatory (also known as Dale's Law)
+#     # Not totally necessary but I'll implement it here anyway
+#     'E_syn_excitatory': 15,  # arbitrarily decided values
+#     'E_syn_inhibitory': 0,
+#     'ei_threshold': 0.85,
+#     # "excite-inhibit threshold". A number between 0 and 1. Percentage of connections which are inhibitory
+#     # STDP-related variables
+#     'use_STDP': use_STDP,  # Control whether STDP is used to adapt synaptic weights or not
+#     'tau_W': 3,  # ms
+#     'STDP_scaling': 10.0,
+#     'R' : 1,
+#     'C' : 25,  # capacitance; larger C leads to smaller effect of stimulus on a neuron's voltage
+#     'threshold' : 10,
+#     'V_reset' : 0,
+#     'refractory_time' : 4,  # ms
+#     # Synaptic weight bounds (dimensionless)
+#     'l_bound' : 0,
+#     'u_bound' : 5,
+#     'times_array' : times_array
+# }
 
 use_STDP = False
 

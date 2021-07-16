@@ -80,3 +80,9 @@ class full_network():
         for a_subnetwork in self.dict_of_networks.values():
             result_dict[a_subnetwork.name] = a_subnetwork.return_results()
         return result_dict
+
+
+
+
+
+
