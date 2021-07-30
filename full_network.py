@@ -56,6 +56,11 @@ class full_network():
         :param times_array: array of all times network states are computed for; units are ms
         :param dt: size of timesteps in ms
         """
+        # set up data structure allowing neurons to record presynaptic neighbor's previous firing times
+        for a_subnetwork in self.dict_of_networks.values():
+            a_subnetwork.initialize_neighbor_spike_time_data_structure()
+
+        # integrate networks forward
         for time_index, t in enumerate(times_array[:-1]):
             # progress full network voltage a single timestep
             for a_subnetwork in self.dict_of_networks.values():

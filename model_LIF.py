@@ -1,13 +1,16 @@
 from spike_methods import *
 from scipy import sparse
-
+import copy
+import math
 
 class LIF_network():
 
     def __init__(self, state_initial, times_array, N, R, C, threshold,
                  last_firing_times, V_reset, refractory_time, g_syn_max,
                  E_syn, tau_syn, use_STDP, STDP_scaling, tau_W,
-                 synapse_delay_delta_t, number_of_stored_most_recent_spikes, bogus_spike_time,
+                 synapse_delay_delta_t, number_of_stored_most_recent_spikes,
+                 number_of_stored_recent_per_neuron_presyn_network_spikes, bogus_spike_time,
+                 spike_time_learning, memory_threshold,
                  network_name):
         self.state_initial = state_initial
         self.times_array = times_array
@@ -58,6 +61,31 @@ class LIF_network():
         self.name = network_name
 
 
+        # ============ Stuff for neurons memorizing spike times of neighbors ==============================
+        self.spike_time_learning = spike_time_learning
+        self.number_of_stored_recent_per_neuron_presyn_network_spikes = number_of_stored_recent_per_neuron_presyn_network_spikes
+        # same as recent_firing_times_list, except an array containing a set number of elements
+        self.recent_firing_times_array = bogus_spike_time*np.ones((self.N,
+                                                                   self.number_of_stored_recent_per_neuron_presyn_network_spikes)
+                                                                   )
+
+        self.number_of_presyn_neighbors = [{} for i in range(N)] # dict contains presyn_networks with value # of neighbors
+        # list of self.N lists of
+        # dicts of {network_presyn_name : {neighbor index within postsyn network of presyn i : list with
+        # (# of postsynaptic spikes) number of ndarray of
+        # most recent number_of_stored_recent_per_neuron_presyn_network_spikes firings}}
+        self.neighbor_neuron_spike_time_list = [{} for i in range(self.N)]
+
+        # dict of {presyn_network_name : list of postsyn neurons[list of presyn neuron indices within their own network]}
+        self.neighbor_neuron_dict = {}
+
+        self.memory_threshold = memory_threshold
+
+        self.given_memories = False
+
+        # ============ End of stuff for neurons memorizing spike times of neighbors ==============================
+
+
     def integrate_voltages_forward_by_dt(self, t, time_index, dt):
         self.alpha = dt / self.C
         self.beta = dt/(self.C*self.R)
@@ -66,7 +94,7 @@ class LIF_network():
         def g_syn(g_syn_max, last_firing_times, tau_syn, t, synapse_delay_delta_t, recent_firing_times_list, number_of_stored_most_recent_spikes):
 
             N = len(recent_firing_times_list)
-            recent_firing_times_array = -1000*np.ones((N,number_of_stored_most_recent_spikes))
+            recent_firing_times_array = self.bogus_spike_time*np.ones((N,number_of_stored_most_recent_spikes))
             for n in range(N):
                 recent_firing_times_list_row_n_array = np.array(recent_firing_times_list[n])
                 length_of_list = len(recent_firing_times_list[n])
@@ -139,6 +167,75 @@ class LIF_network():
         temp_4 = np.squeeze(np.array(temp_3)) # need to set as array for this to work
         self.V_t[time_index + 1, :] += self.alpha * temp_4
 
+        #  ====================== Individual neuron spike memory section 1 ==============================
+
+        if self.given_memories:
+            print("Running given_memories section for t="+str(t))
+            for n in range(self.N):  # For all neurons in this subnetwork
+                sum = 0
+                sigma_memory = 1  # TODO: Move this somewhere else
+
+                # For presyn neurons within SAME subnetwork as postsyn
+                presyn_network_name = self.name
+                presyn_network = self
+                number_of_spike_memories_stored = len(self.given_neighbor_neuron_spike_time_list[n][presyn_network_name])
+                if number_of_spike_memories_stored != 0:
+                    for i in range(self.number_of_presyn_neighbors[n][
+                                       presyn_network_name]):  # for each neuron presynaptic to neuron n
+                        presyn_network_neuron_index = self.neighbor_neuron_dict[presyn_network_name][n][i]  # get neuron n's label for presyn neuron
+                        if self.W_sparse.tolil()[n, presyn_network_neuron_index] != 0:
+                            for spike_memory_index in range(number_of_spike_memories_stored):
+                                first_term = (t-presyn_network.last_firing_times[presyn_network_neuron_index])
+                                second_term = self.given_neighbor_neuron_spike_time_list[n][presyn_network_name][
+                                                       spike_memory_index][presyn_network_neuron_index]
+                                mask_thresh = self.bogus_spike_time -5
+                                first_term = np.where(first_term > mask_thresh, first_term, math.nan) # make > mask_thresh into NaN
+                                second_term = np.where(second_term > mask_thresh, second_term, math.nan) # make > mask_thresh into NaN
+                                exp_power = np.exp(-(first_term- second_term) ** 2 / sigma_memory)
+                                sum += np.sum(np.ma.array(exp_power,mask = np.isnan(exp_power))) # sum, ignoring NaNs
+
+                # For presyn neurons OUTSIDE subnetwork of postsyn
+                for a_connection in self.dict_of_connected_networks.items(): # for all internetwork connections
+                    # print("Check here")
+                    network_x_of_connection = a_connection[1][0]
+                    network_y_of_connection = a_connection[1][1]
+                    is_self_network_x = (network_x_of_connection.name == self.name)
+                    # default values set assuming self network is network y, so other network is network x
+                    presyn_network_name = network_x_of_connection.name
+                    number_of_spike_memories_stored = len(self.given_neighbor_neuron_spike_time_list[n][presyn_network_name])
+                    if number_of_spike_memories_stored != 0:
+                        presyn_network = network_x_of_connection
+                        W_internetwork_sparse = internetwork_synapse_W.W_sparse_x_to_y
+                        if is_self_network_x:
+                            presyn_network_name = network_y_of_connection.name
+                            presyn_network = network_y_of_connection
+                            W_internetwork_sparse = internetwork_synapse_W.W_sparse_y_to_x
+                        for i in range(self.number_of_presyn_neighbors[n][presyn_network_name]): # look at all presynaptic neurons
+                            presyn_network_neuron_index = self.neighbor_neuron_dict[presyn_network_name][n][i]
+                            if W_internetwork_sparse.tolil()[n, presyn_network_neuron_index] != 0: # if the presynaptic neuron does have a nonzero effect on the postsynaptic neuron n,
+                                # print("HI!")
+                                # print(presyn_network_neuron_index)
+                                # print("HI2")
+                                # print(n)
+                                for spike_memory_index in range(number_of_spike_memories_stored):
+                                    mask_thresh = self.bogus_spike_time - 5
+                                    first_term = (t-presyn_network.last_firing_times[presyn_network_neuron_index])
+                                    second_term = self.given_neighbor_neuron_spike_time_list[n][presyn_network_name][
+                                                       spike_memory_index][
+                                                       presyn_network_neuron_index]
+                                    first_term = np.where(first_term > mask_thresh, first_term, math.nan)  # make > 999 into NaN
+                                    second_term = np.where(second_term > mask_thresh, second_term,
+                                                           math.nan)  # make > 999 into NaN
+                                    exp_power = np.exp(-(first_term - second_term) ** 2 / sigma_memory)
+                                    sum += np.sum(np.ma.array(exp_power, mask=np.isnan(exp_power)))
+                if sum>1:
+                    print("sum is "+str(sum))
+                if sum > self.memory_threshold:  # memory sufficiently matches current observations
+                    self.V_t[time_index + 1, n] = self.threshold + 1  # set voltage so that current neuron may spike
+
+        # ================== End of individual neuron spike memory section ===========================
+
+
         # Reset all neurons now (or still) in refractory to baseline
         self.in_refractory = np.multiply( ((t - self.last_firing_times) < self.refractory_time), ((t - self.last_firing_times) > 0.00001))
         (self.V_t[time_index+1,:])[self.in_refractory] = self.V_reset
@@ -154,6 +251,24 @@ class LIF_network():
         for n in range(self.N):
             if self.last_firing_times[n] != self.last_firing_array[time_index, n]:
                 self.recent_firing_times_list[n].append(self.last_firing_times[n])
+
+        #  ====================== Individual neuron spike memory section 2 ==============================
+        # Update data structures for neurons recording neighbor spike times
+        if self.spike_time_learning == True:
+            for n in range(self.N): # for every neuron in this network
+                for m in range(len(self.recent_firing_times_list[n])): # for all most recent firing times of neuron n
+                    # as long as this mth element is less than the length of recent_firing_times_array, which is
+                    # length number_of_stored_recent_per_neuron_presyn_network_spikes:
+                    if m < self.number_of_stored_recent_per_neuron_presyn_network_spikes:
+                        # store firing time in array, with most recent on right and oldest on left:
+                        self.recent_firing_times_array[n, -(m+1)] = self.recent_firing_times_list[n][-(m+1)]
+                # If neuron has spiked, then update this neuron's memory of all other neurons' spike times
+                if self.V_t_above_thresh[n] == True:
+                    self.update_neighbor_spike_time_data_structure(n,t)
+
+                # TODO: Increase neuron potential above threshold if presynaptic pattern which caused it to fire in past is present now
+
+        #  ================== End of individual neuron spike memory section ===========================
 
         # Reset to baseline if below baseline:
         self.V_t_below_reset = (self.V_t[time_index+1, :] <= self.V_reset)
@@ -171,6 +286,83 @@ class LIF_network():
             self.W += self.delta_W
             self.W_sparse = sparse.csr_matrix(self.W)
 
+    def initialize_neighbor_spike_time_data_structure(self):
+        """Prepare data structure which will store each neuron's memory of its presynaptic neighbors' spike times.
+            Actual values will be added during the forward integration of the full network
+        """
+        self.neighbor_neuron_spike_time_list = [{} for i in range(self.N)]
+        for n in range(self.N):
+            # For presyn neurons within SAME subnetwork as postsyn
+            presyn_name = self.name
+            self.neighbor_neuron_dict[presyn_name] = self.W_sparse.tolil().rows
+            self.number_of_presyn_neighbors[n][presyn_name] = (self.W[n] != 0).sum()
+            self.neighbor_neuron_spike_time_list[n][presyn_name] = []
+
+            # For presyn neurons OUTSIDE subnetwork of postsyn
+            for a_connection in self.dict_of_connected_networks.items():
+                # print("Check here")
+                network_x_of_connection = a_connection[1][0]
+                network_y_of_connection = a_connection[1][1]
+                internetwork_synapse_W = a_connection[1][2]
+                is_self_network_x = (network_x_of_connection.name == self.name)
+                presyn_name = network_x_of_connection.name
+                W_internetwork = internetwork_synapse_W.W_x_to_y
+                W_internetwork_sparse = internetwork_synapse_W.W_sparse_x_to_y
+                if is_self_network_x:
+                    W_internetwork = internetwork_synapse_W.W_y_to_x
+                    W_internetwork_sparse = internetwork_synapse_W.W_sparse_y_to_x
+                    presyn_name = network_y_of_connection.name
+                self.neighbor_neuron_dict[presyn_name] = W_internetwork_sparse.tolil().rows # WARNING: Will count weights of 0 as connections
+                # print(self.neighbor_neuron_dict[use_name])
+                self.number_of_presyn_neighbors[n][presyn_name] = (W_internetwork[n] != 0).sum() # needed only for next line
+
+                # Checking to make sure the chosen neighbor-counting method is correct (result: it works correctly):
+                # if (len(self.neighbor_neuron_dict[use_name][n]) != self.number_of_presyn_neighbors[n][use_name]):
+                #     print("No match!")
+                #     print("Networks: "+str(network_x_of_connection.name)+" and "+str(network_y_of_connection.name))
+                #     print("For n=" + str(n))
+                #     print(W_internetwork_sparse)
+                #     print(W_internetwork_sparse.toarray().sum())
+                #     print("1st says n="+str(n) +" is connected to "+str(len(self.neighbor_neuron_dict[use_name][n]))+" presyn;"+" 2nd says "+str((W_internetwork[n] != 0).sum()))
+                #     print("1st: "+str(self.neighbor_neuron_dict[use_name][n]))
+                #     print("2nd: "+str(W_internetwork))
+                #     print(W_internetwork[n])
+                #     print("\n")
+
+                self.neighbor_neuron_spike_time_list[n][presyn_name] = []
+
+
+    def update_neighbor_spike_time_data_structure(self, n, t):
+        """
+        Updates self.neighbor_neuron_spike_time_list
+        Value n is an integer index of neuron in self network that has just spiked
+        """
+        # For presyn neurons within SAME subnetwork as postsyn\
+        presyn_network_name = self.name
+        self.neighbor_neuron_spike_time_list[n][presyn_network_name].append({})
+        for i in range(self.number_of_presyn_neighbors[n][presyn_network_name]): # for each neuron presynaptic to neuron n
+            presyn_network_neuron_index = self.neighbor_neuron_dict[presyn_network_name][n][i] # get neuron n's label for presyn neuron
+            self.neighbor_neuron_spike_time_list[n][presyn_network_name][-1][presyn_network_neuron_index] = t-copy.deepcopy(self.recent_firing_times_array[presyn_network_neuron_index, -self.number_of_stored_recent_per_neuron_presyn_network_spikes:])
+
+        # For presyn neurons OUTSIDE subnetwork of postsyn
+        for a_connection in self.dict_of_connected_networks.items():
+            # print("Check here")
+            network_x_of_connection = a_connection[1][0]
+            network_y_of_connection = a_connection[1][1]
+            is_self_network_x = (network_x_of_connection.name == self.name)
+            # default values set assuming self network is network y, so other network is network x
+            presyn_network_name = network_x_of_connection.name
+            presyn_network = network_x_of_connection
+            if is_self_network_x:
+                presyn_network_name = network_y_of_connection.name
+                presyn_network = network_y_of_connection
+            self.neighbor_neuron_spike_time_list[n][presyn_network_name].append({})
+            for i in range(self.number_of_presyn_neighbors[n][presyn_network_name]):
+                presyn_network_neuron_index = self.neighbor_neuron_dict[presyn_network_name][n][i]
+                self.neighbor_neuron_spike_time_list[n][presyn_network_name][-1][presyn_network_neuron_index] = t-copy.deepcopy(presyn_network.recent_firing_times_array[
+                                                                                     presyn_network_neuron_index,
+                                                                                     -self.number_of_stored_recent_per_neuron_presyn_network_spikes:])
+
     def return_results(self):
         self.spike_list = process_spike_results(self.last_firing_array, self.bogus_spike_time, self.N)
 
@@ -179,3 +371,24 @@ class LIF_network():
         # np.savetxt('spike_data/spike_list;' + extra_descriptors + '.txt', spike_list_array, fmt='%.3e')
 
         return [self.V_t, self.W, self.times_array, self.spike_list]
+
+    def copy_neuron_memories(self, taught_network):
+        self.given_memories = True
+        self.spike_time_learning = True
+        self.given_neighbor_neuron_spike_time_list = taught_network.neighbor_neuron_spike_time_list
+        self.spike_time_learning = taught_network.spike_time_learning
+        self.number_of_stored_recent_per_neuron_presyn_network_spikes = taught_network.number_of_stored_recent_per_neuron_presyn_network_spikes
+        # same as recent_firing_times_list, except an array containing a set number of elements
+        self.recent_firing_times_array = taught_network.recent_firing_times_array
+
+        self.number_of_presyn_neighbors = taught_network.number_of_presyn_neighbors
+        # list of self.N lists of
+        # dicts of {network_presyn_name : {neighbor index within postsyn network of presyn i : list with
+        # (# of postsynaptic spikes) number of ndarray of
+        # most recent number_of_stored_recent_per_neuron_presyn_network_spikes firings}}
+        self.neighbor_neuron_spike_time_list = taught_network.neighbor_neuron_spike_time_list
+
+        # dict of {presyn_network_name : list of postsyn neurons[list of presyn neuron indices within their own network]}
+        self.neighbor_neuron_dict = taught_network.neighbor_neuron_dict
+
+        self.memory_threshold = taught_network.memory_threshold

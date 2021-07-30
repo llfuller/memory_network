@@ -1,4 +1,6 @@
 import numpy as np
+import scipy
+from scipy.integrate import odeint
 
 """
 Each class in this script is a current object.
@@ -55,6 +57,34 @@ class sum_multi_current_object():
             combined_I_ext = np.multiply(self.set_max, np.divide(combined_I_ext, max_abs_value))
         return combined_I_ext
 
+
+class freeze_time_current_object():
+    def __init__(self, current_object, time_initial_of_freeze, time_final_of_freeze):
+        """
+        Args:
+            current_objects:
+        """
+        self.name = ''
+        self.name += current_object.name +',freeze('+str(time_final_of_freeze)+str(time_final_of_freeze)+'),'
+        self.current_object = current_object
+        self.extra_descriptors = ''
+        self.extra_descriptors += current_object.extra_descriptors
+        self.time_initial_of_freeze = time_initial_of_freeze
+        self.time_final_of_freeze = time_final_of_freeze
+
+    def prepare_f(self, args):
+        """
+        Used to prepare function in cases like L63 object if the function exists inside that object
+        """
+        self.current_object.prepare_f(args)
+
+    def function(self, N, t):
+        if t<self.time_initial_of_freeze:
+            return self.current_object.function(N,t)
+        if t>=self.time_initial_of_freeze and t<self.time_final_of_freeze:
+            return self.current_object.function(N,self.time_initial_of_freeze)
+        if t>=self.time_final_of_freeze:
+            return self.current_object.function(N,t-(self.time_final_of_freeze-self.time_initial_of_freeze))
 
 # Currents
 class I_flat():
@@ -122,6 +152,12 @@ class I_flat_cutoff():
         self.extra_descriptors = ('cutoff='+str(cutoff_time)).replace('.','p')
 
     def function(self, N,t):
+        """
+        :param N: Included only because many other functions of current objects need N, and this is standardized
+        in code that uses current objects' functions.
+        :param t: time (scalar)
+        :return: current vector
+        """
         # Shortened current meant to drive neurons for a small amount of time
         # and cause them to hopefully complete the signal
         I_ext = self.magnitude*np.ones((N))
@@ -185,3 +221,49 @@ class I_flat_alternating_steps():
             if i*self.I_dt < t and t < (i+1)*self.I_dt:
                 I_ext *= self.steps_height_list[i]
         return I_ext
+
+
+
+class L63_object():
+    def __init__(self, rho=28.0, sigma=10.0, beta=8.0 / 3.0, noise=0):
+        self.name = "I_L63"
+        self.extra_descriptors = ('rho=' + str(rho) +",sig="+str(sigma)+",beta="+str(beta))
+        self.rho = rho
+        self.sigma = sigma
+        self.beta = beta
+        self.state0 = [-3.1, -3.1, 20.7]
+        self.noise = noise
+        self.stored_state = np.array([])
+        self.interp_function = None
+
+    def dfdt(self, state, t):
+        """To be used in odeint"""
+        # runs forward in time from 0, cannot just compute at arbitrary t
+        x, y, z = state  # Unpack the state vector
+        added_noise = self.noise*scipy.random.uniform(low=0, high=1, size=3)
+        return self.sigma * (y - x), x * (self.rho - z) - y, x * y - self.beta * z  # Derivatives
+
+    def function(self,N,t):
+        return self.interp_function(t)
+
+    def prepare_f(self, times_array):
+        """
+        This needs to be run before the function 'function' can be used for this object.
+        :param times_array: array of times at which to produce solution
+        :return: states vector from run at times in times_array
+        """
+        t = times_array
+
+        states = odeint(self.dfdt, self.state0, t)
+
+        # fig = plt.figure()
+        # ax = fig.gca(projection="3d")
+        # ax.plot(states[:, 0], states[:, 1], states[:, 2])
+        # plt.draw()
+        # plt.show()
+        self.stored_state = states
+        print(states)
+        print(np.shape(states))
+        self.interp_function = scipy.interpolate.interp1d(times_array, self.stored_state.transpose(), kind='cubic')
+
+        return states

@@ -35,7 +35,10 @@ def build_LIF_network(
                         l_bound = 0,
                         u_bound = 5,
                         number_of_stored_most_recent_spikes = 15,
+                        number_of_stored_recent_per_neuron_presyn_network_spikes = 3,
                         times_array = None,
+                        spike_time_learning = False,
+                        memory_threshold = 10,
                         network_name = None
     ):
     """
@@ -120,7 +123,9 @@ def build_LIF_network(
     network_1 = LIF_network(flattened_initial_states, times_array, N, R, C, threshold,
                             last_firing_times, V_reset, refractory_time, g_syn_max,
                             E_syn, tau_syn, use_STDP, STDP_scaling, tau_W,
-                            synapse_delay_delta_t, number_of_stored_most_recent_spikes, bogus_spike_time,
+                            synapse_delay_delta_t, number_of_stored_most_recent_spikes,
+                            number_of_stored_recent_per_neuron_presyn_network_spikes, bogus_spike_time,
+                            spike_time_learning, memory_threshold,
                             network_name)
 
     return network_1

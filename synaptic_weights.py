@@ -1,6 +1,7 @@
 import scipy
 from scipy import stats
 import numpy as np
+import copy
 def make_internal_weights(N, synapse_density, l_bound, stats_scale):
     """
     :param N: Number of neurons in network
@@ -19,10 +20,12 @@ def make_internal_weights(N, synapse_density, l_bound, stats_scale):
 class internetwork_weights():
     def __init__(self):
         self.W_x_to_y = None
+        self.W_x_to_y_binary = None # same as self.W_x_to_y but scaled so that all nonzero elements now equal 1
         self.W_sparse_x_to_y = None
         self.synapse_delay_delta_t_x_to_y = 7
 
         self.W_y_to_x = None
+        self.W_y_to_x_binary = None # same as self.W_y_to_x but scaled so that all nonzero elements now equal 1
         self.W_sparse_y_to_x = None
         self.synapse_delay_delta_t_y_to_x = 7
 
@@ -45,7 +48,8 @@ class internetwork_weights():
         :param l_bound: lower Synaptic weight bounds (dimensionless)
         :param stats_scale: used for "scale" argument in data_rvs argument of scipy sparse random method
         :param STDP_method: (type: boolean)
-        :param x_to_y_only: (type: boolean) If True, then network_x acts on network_y, but the opposite is not true
+        :param g_x_to_y_and_y_to_x: (type: list) If first index is 1, then network_x acts on network_y,
+         if second index is 1, then network_y acts on network_y. Any of the four combinations of 0 and 1 are allowed.
         :return: uniformly randomized synaptic weights between neurons between two networks, with zeros on diagonal
         """
         N_x = network_x.N
@@ -63,6 +67,11 @@ class internetwork_weights():
         self.W_sparse_y_to_x = scipy.sparse.csr_matrix(state_initial_synaptic)
         self.W_y_to_x = self.W_sparse_y_to_x.toarray()
 
+        # make binary versions of synaptic connections
+        self.W_x_to_y_binary = copy.deepcopy(self.W_x_to_y)
+        self.W_x_to_y_binary[self.W_x_to_y_binary>0] = 1
+        self.W_y_to_x_binary = copy.deepcopy(self.W_y_to_x)
+        self.W_y_to_x_binary[self.W_y_to_x_binary>0] = 1
 
         self.STDP_method = STDP_method
         if STDP_method == None or STDP_method == False:
