@@ -166,6 +166,11 @@ class LIF_network():
         temp_3 = np.sum(temp_2, axis=1)
         temp_4 = np.squeeze(np.array(temp_3)) # need to set as array for this to work
         self.V_t[time_index + 1, :] += self.alpha * temp_4
+        # print("temp_1="+str(temp_1))
+        # print("temp_2="+str(temp_2))
+        # print("temp_3="+str(temp_3))
+        # print("temp_4="+str(temp_4))
+        # print("CURRENT I: "+str(I_ext(self.N, t)))
 
         #  ====================== Individual neuron spike memory section 1 ==============================
 
@@ -185,14 +190,30 @@ class LIF_network():
                         presyn_network_neuron_index = self.neighbor_neuron_dict[presyn_network_name][n][i]  # get neuron n's label for presyn neuron
                         if self.W_sparse.tolil()[n, presyn_network_neuron_index] != 0:
                             for spike_memory_index in range(number_of_spike_memories_stored):
-                                first_term = (t-presyn_network.last_firing_times[presyn_network_neuron_index])
-                                second_term = self.given_neighbor_neuron_spike_time_list[n][presyn_network_name][
+                                first_term_temp = (t-presyn_network.last_firing_times[presyn_network_neuron_index])
+                                second_term_temp = self.given_neighbor_neuron_spike_time_list[n][presyn_network_name][
                                                        spike_memory_index][presyn_network_neuron_index]
-                                mask_thresh = self.bogus_spike_time -5
-                                first_term = np.where(first_term > mask_thresh, first_term, math.nan) # make > mask_thresh into NaN
-                                second_term = np.where(second_term > mask_thresh, second_term, math.nan) # make > mask_thresh into NaN
-                                exp_power = np.exp(-(first_term- second_term) ** 2 / sigma_memory)
+                                mask_thresh = np.abs(self.bogus_spike_time) -5
+                                # print(mask_thresh)
+                                first_term = np.where(first_term_temp > mask_thresh, math.nan, first_term_temp) # make > mask_thresh into NaN
+                                second_term = np.where(second_term_temp > mask_thresh, math.nan, second_term_temp) # make > mask_thresh into NaN
+                                exp_power = np.exp(-np.fabs((first_term- second_term)) ** 2 / sigma_memory)
                                 sum += np.sum(np.ma.array(exp_power,mask = np.isnan(exp_power))) # sum, ignoring NaNs
+                                if t>18.8 and t<19.2:
+                                    if sum>0.001:
+                                        print("exp_power")
+                                        print(exp_power)
+                                        print("first_term_temp")
+                                        print(first_term_temp)
+                                        print("second_term_temp")
+                                        print(second_term_temp)
+                                        print("first_term")
+                                        print(first_term)
+                                        print("second_term")
+                                        print(second_term)
+                                        print("sum")
+                                        print(sum)
+
 
                 # For presyn neurons OUTSIDE subnetwork of postsyn
                 for a_connection in self.dict_of_connected_networks.items(): # for all internetwork connections
@@ -218,20 +239,24 @@ class LIF_network():
                                 # print("HI2")
                                 # print(n)
                                 for spike_memory_index in range(number_of_spike_memories_stored):
-                                    mask_thresh = self.bogus_spike_time - 5
+                                    mask_thresh = 100#np.fabs(self.bogus_spike_time) - 5
                                     first_term = (t-presyn_network.last_firing_times[presyn_network_neuron_index])
                                     second_term = self.given_neighbor_neuron_spike_time_list[n][presyn_network_name][
                                                        spike_memory_index][
                                                        presyn_network_neuron_index]
-                                    first_term = np.where(first_term > mask_thresh, first_term, math.nan)  # make > 999 into NaN
-                                    second_term = np.where(second_term > mask_thresh, second_term,
-                                                           math.nan)  # make > 999 into NaN
-                                    exp_power = np.exp(-(first_term - second_term) ** 2 / sigma_memory)
+                                    first_term = np.where(first_term > mask_thresh, math.nan, first_term)  # make > 999 into NaN
+                                    print(first_term)
+                                    second_term = np.where(second_term > mask_thresh, math.nan,
+                                                           second_term)  # make > 999 into NaN
+                                    exp_power = np.exp(-np.fabs((first_term - second_term)) ** 2 / sigma_memory)
                                     sum += np.sum(np.ma.array(exp_power, mask=np.isnan(exp_power)))
+                # if sum>0:
+                #     print("CHECKSUM: "+str(sum))
                 if sum>1:
                     print("sum is "+str(sum))
                 if sum > self.memory_threshold:  # memory sufficiently matches current observations
                     self.V_t[time_index + 1, n] = self.threshold + 1  # set voltage so that current neuron may spike
+                    # print("Allowing to spike.")
 
         # ================== End of individual neuron spike memory section ===========================
 
@@ -243,6 +268,7 @@ class LIF_network():
         # Find V above threshold (find newly-spiking neurons)
         self.V_t_above_thresh = (self.V_t[time_index+1, :] > self.threshold)
         (self.V_t[time_index + 1, :])[self.V_t_above_thresh] = self.V_reset
+        # print("ANY TRUE? "+str(np.any(self.V_t_above_thresh)))
 
         # Record firings
         self.last_firing_times[self.V_t_above_thresh] = t

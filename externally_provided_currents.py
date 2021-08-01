@@ -26,6 +26,9 @@ class multiply_multi_current_object():
         combined_I_ext = np.ones((N))
         for a_current_object in self.current_objects_list:
             combined_I_ext = np.multiply(combined_I_ext, a_current_object.function(N, t))
+            # print(a_current_object.name)
+            # if a_current_object.name == 'I_flat_cutoff_reverse':
+            #     print(combined_I_ext)
         if self.set_max != None:
             max_abs_value = np.amax(np.fabs(combined_I_ext))
             if max_abs_value!=0:
@@ -59,18 +62,18 @@ class sum_multi_current_object():
 
 
 class freeze_time_current_object():
-    def __init__(self, current_object, time_initial_of_freeze, time_final_of_freeze):
+    def __init__(self, current_object, boundary_pair):
         """
         Args:
             current_objects:
+            boundary_pair: expects (time_start_freeze, time_end_freeze)
         """
+        self.boundary_pair = boundary_pair
         self.name = ''
-        self.name += current_object.name +',freeze('+str(time_final_of_freeze)+str(time_final_of_freeze)+'),'
+        self.name += current_object.name +',freeze('+str(self.boundary_pair)+'),'
         self.current_object = current_object
         self.extra_descriptors = ''
         self.extra_descriptors += current_object.extra_descriptors
-        self.time_initial_of_freeze = time_initial_of_freeze
-        self.time_final_of_freeze = time_final_of_freeze
 
     def prepare_f(self, args):
         """
@@ -79,12 +82,14 @@ class freeze_time_current_object():
         self.current_object.prepare_f(args)
 
     def function(self, N, t):
-        if t<self.time_initial_of_freeze:
+        time_initial_of_freeze = self.boundary_pair[0]
+        time_final_of_freeze = self.boundary_pair[1]
+        if t<time_initial_of_freeze:
             return self.current_object.function(N,t)
-        if t>=self.time_initial_of_freeze and t<self.time_final_of_freeze:
-            return self.current_object.function(N,self.time_initial_of_freeze)
-        if t>=self.time_final_of_freeze:
-            return self.current_object.function(N,t-(self.time_final_of_freeze-self.time_initial_of_freeze))
+        if t>=time_initial_of_freeze and t<time_final_of_freeze:
+            return self.current_object.function(N,time_initial_of_freeze)
+        if t>=time_final_of_freeze:
+            return self.current_object.function(N,t-(time_final_of_freeze-time_initial_of_freeze))
 
 # Currents
 class I_flat():
@@ -165,6 +170,30 @@ class I_flat_cutoff():
             I_ext = np.zeros((N))
         return I_ext
 
+
+class I_flat_cutoff_reverse():
+
+    def __init__(self, cutoff_time, magnitude = 1):
+        self.name = "I_flat_cutoff_reverse"
+        self.magnitude = magnitude
+        self.cutoff_time = cutoff_time
+        self.extra_descriptors = ('cutoff='+str(cutoff_time)).replace('.','p')
+
+    def function(self, N,t):
+        """
+        :param N: Included only because many other functions of current objects need N, and this is standardized
+        in code that uses current objects' functions.
+        :param t: time (scalar)
+        :return: current vector
+        """
+        # Shortened current meant to play only later parts of signal, not earlier parts
+        I_ext = self.magnitude*np.ones((N))
+        if t<self.cutoff_time:
+            # print("Time is "+str(t))
+            # print("Setting all to zero")
+            I_ext = np.zeros((N))
+        return I_ext
+
 class I_flat_3_and_5_only():
 
     def __init__(self):
@@ -241,7 +270,7 @@ class L63_object():
         # runs forward in time from 0, cannot just compute at arbitrary t
         x, y, z = state  # Unpack the state vector
         added_noise = self.noise*scipy.random.uniform(low=0, high=1, size=3)
-        return self.sigma * (y - x), x * (self.rho - z) - y, x * y - self.beta * z  # Derivatives
+        return (1+added_noise)*(self.sigma * (y - x), x * (self.rho - z) - y, x * y - self.beta * z)  # Derivatives
 
     def function(self,N,t):
         return self.interp_function(t)
@@ -262,8 +291,6 @@ class L63_object():
         # plt.draw()
         # plt.show()
         self.stored_state = states
-        print(states)
-        print(np.shape(states))
         self.interp_function = scipy.interpolate.interp1d(times_array, self.stored_state.transpose(), kind='cubic')
 
         return states

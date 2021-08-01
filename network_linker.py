@@ -58,7 +58,7 @@ data_3 = external_current_function_3
 # Time stuff
 dt = 0.1
 time_start = 0.0
-time_total = 600.0
+time_total = 1000.0
 timesteps = int(float(time_total) / dt)  # total number of intervals to evaluate solution at
 times_array = np.linspace(time_start, time_start + time_total, timesteps)
 
@@ -106,7 +106,7 @@ sensory_subnetwork_args = {
     # when calculating whether postsyn neurons will spike or not by comparing spike timing differences
     'times_array' : times_array,
     'spike_time_learning' : True,
-    'memory_threshold' : 8
+    'memory_threshold' : 7
 }
 
 sensory_subnetwork_args['ei_threshold'] = 0.0
@@ -187,10 +187,15 @@ print("Program took " + str(round(time.time() - start_time, 2)) + " seconds to r
 # # Run cloned network from same initial conditions, except with memories
 # total_network_already_learned.connect_to_input_data(data_1, network_1)
 total_network_already_learned.dict_of_networks['excitatory_network'].copy_neuron_memories(network_1)
-current_object_1_incomplete = currents.multiply_multi_current_object(
-    [current_object_1, currents.I_flat_cutoff(cutoff_time=150)]
+current_object_1_incomplete_temp = currents.multiply_multi_current_object(
+    [current_object_1, currents.I_flat_cutoff_reverse(cutoff_time=150)]
 )
-
+current_object_1_incomplete = currents.multiply_multi_current_object(
+    [current_object_1_incomplete_temp, currents.I_flat_cutoff(cutoff_time=600)]
+)
+import matplotlib.pyplot as plt
+plt.plot([current_object_1_incomplete.function(N_generic, t) for t in times_array])
+plt.show()
 total_network_already_learned.dict_of_networks['excitatory_network'].list_of_external_stimulus_functions = [current_object_1_incomplete.function]
 print("Running taught neurons for " + str(timesteps) + " timesteps of size " + str(dt)+"ms ("+str(time_total) +"ms)")
 
