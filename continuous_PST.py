@@ -13,7 +13,7 @@ import externally_provided_currents as epc
 import numpy.linalg as LA
 
 
-random.seed(2021)
+# random.seed(2021)
 class memory_gradient():
     def __init__(self, barrier_height_scaling = 1.0, sigma_outer = 1.0):
         self.solutions_list = []
@@ -118,8 +118,8 @@ class continuous_network():
         self.gamma_2 = 0.005
         self.gamma_3 = 1
         self.sigma_past = 0.03#0.001
-        self.sigma_tunnel = 5*0.05
-        self.sigma_tunnel_removal = 0.001*self.sigma_tunnel/2.0
+        self.sigma_tunnel = 6*0.05
+        self.sigma_tunnel_removal = 0.0005*self.sigma_tunnel/2.0
 
         self.R = 1
         self.nearest_neighbor_graph_list = []
@@ -156,16 +156,17 @@ class continuous_network():
             dist_to_nearest_center = np.linalg.norm(np.fabs(diff_full_network_center))
             dist_to_nearest_center_per_axis = np.sqrt(diff_full_network_center**2)
             print(diff_full_network_center.shape)
-            print("HJERE^")
             term_2 = self.gamma_1*np.multiply(gradient_vector_array, dist_to_nearest_center<np.sqrt(self.N*self.sigma_past**2)) #np.sum( np.exp(-((norm_vector_array)/self.sigma_past)**2), axis=1))
             term_3 = self.gamma_3 * (1+np.tanh(-self.R*np.sum(np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel_removal)**2))))
-            term_4 = - 500*5*(diff_full_network_center/self.sigma_tunnel)**3 *np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel)**4) * (1-0*(dist_to_nearest_center/self.sigma_tunnel)**2)
+            term_4 = - 3800*5*(diff_full_network_center/self.sigma_tunnel)**3 *np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel)**4) * (1-0*(dist_to_nearest_center/self.sigma_tunnel)**2)
+            # term_4 = 500*5*np.tanh(-dist_to_nearest_center_per_axis/self.sigma_tunnel)#500*5*(diff_full_network_center/self.sigma_tunnel)**3 *np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel)**4) * (1-0*(dist_to_nearest_center/self.sigma_tunnel)**2)
             # TODO: xdot array above
         print(t)
         dadt = self.gamma_alpha*(- alpha + np.tanh(np.linalg.norm(I_ext_f(3,t))))
         # print(0.5*(1+np.tanh(np.linalg.norm(I_ext_f(3,t)))))
         # print(np.linalg.norm(I_ext_f(3,t)))
         drdt_term_usual = alpha*np.multiply(self.gamma_1,(-r + self.beta*np.tanh(self.A@r + self.W_in@I_ext_f(3,t))))
+        # c = 0.0005
         drdt_term_sst =  (1-alpha)*(term_2 + np.multiply(term_3,term_4))
         # if self.network_memory_gradient.solutions_array is not None:
         #     print("drdt: "+str(drdt_term_sst[:5]))
