@@ -194,7 +194,10 @@ current_object_1_incomplete = currents.multiply_multi_current_object(
     [current_object_1_incomplete_temp, currents.I_flat_cutoff(cutoff_time=600)]
 )
 import matplotlib.pyplot as plt
-plt.plot([current_object_1_incomplete.function(N_generic, t) for t in times_array])
+    # plt.plot([current_object_1_incomplete.function(N_generic, t) for t in times_array])
+plt.plot([current_object_1.function(N_generic, t) for t in times_array])
+plt.plot([current_object_2.function(N_generic, t) for t in times_array])
+plt.plot([current_object_3.function(N_generic, t) for t in times_array])
 plt.show()
 total_network_already_learned.dict_of_networks['excitatory_network'].list_of_external_stimulus_functions = [current_object_1_incomplete.function]
 print("Running taught neurons for " + str(timesteps) + " timesteps of size " + str(dt)+"ms ("+str(time_total) +"ms)")
@@ -203,12 +206,12 @@ print("Running taught neurons for " + str(timesteps) + " timesteps of size " + s
 #     print("Data used is: " +str(a_subnetwork.list_of_external_stimulus_functions))
 
 start_time = time.time()
-total_network_already_learned.run(times_array, dt)
+# total_network_already_learned.run(times_array, dt)
 print("Program took " + str(round(time.time() - start_time, 2)) + " seconds to run.")
 
 
 # Process spike results into a more manageable form:
-total_results_dict = total_network_already_learned.organize_results()
+total_results_dict = total_network.organize_results()
 
 # Save and plot subnetwork results for all subnetworks within the full_network:
 for subnetwork_name, subnetwork_results in total_results_dict.items():
