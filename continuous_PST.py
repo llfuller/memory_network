@@ -116,13 +116,18 @@ class continuous_network():
         self.times = [] #temporary
         self.gamma_alpha = 500#.1 #should be slow compared to network
         self.gamma_2 = 0.005
-        self.gamma_3 = 1
+        self.gamma_3 = 0.4
+        self.gamma_4 = 10
+        self.c = 1
         self.sigma_past = 0.03#0.001
-        self.sigma_tunnel = 6*0.05
-        self.sigma_tunnel_removal = 0.0005*self.sigma_tunnel/2.0
+        self.sigma_tunnel = 0.1
+        self.sigma_tunnel_removal = 2
+        self.recall_speedup = 1
 
         self.R = 1
         self.nearest_neighbor_graph_list = []
+        self.absolute_distances_over_time_list = []
+        self.term3times4_list = []
 
 
     def f(self, t, x, I_ext_f):
@@ -155,19 +160,23 @@ class continuous_network():
             diff_full_network_center = (r-nearest_center)
             dist_to_nearest_center = np.linalg.norm(np.fabs(diff_full_network_center))
             dist_to_nearest_center_per_axis = np.sqrt(diff_full_network_center**2)
-            print(diff_full_network_center.shape)
-            term_2 = self.gamma_1*np.multiply(gradient_vector_array, dist_to_nearest_center<np.sqrt(self.N*self.sigma_past**2)) #np.sum( np.exp(-((norm_vector_array)/self.sigma_past)**2), axis=1))
-            term_3 = self.gamma_3 * (1+np.tanh(-self.R*np.sum(np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel_removal)**2))))
-            term_4 = - 3800*5*(diff_full_network_center/self.sigma_tunnel)**3 *np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel)**4) * (1-0*(dist_to_nearest_center/self.sigma_tunnel)**2)
+            term_2 = self.recall_speedup*np.multiply(gradient_vector_array, dist_to_nearest_center<np.sqrt(self.N*self.sigma_past**2)) #np.sum( np.exp(-((norm_vector_array)/self.sigma_past)**2), axis=1))
+            term_3 = self.gamma_3 * (1+np.tanh(-self.R*np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel_removal)**2)))
+            term_4 = - self.gamma_4 * (diff_full_network_center/self.sigma_tunnel) *np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel)**2) * (1-0*(dist_to_nearest_center/self.sigma_tunnel)**2)
             # term_4 = 500*5*np.tanh(-dist_to_nearest_center_per_axis/self.sigma_tunnel)#500*5*(diff_full_network_center/self.sigma_tunnel)**3 *np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel)**4) * (1-0*(dist_to_nearest_center/self.sigma_tunnel)**2)
+            self.absolute_distances_over_time_list.append(dist_to_nearest_center)
+            self.term3times4_list.append(np.linalg.norm(np.multiply(term_3,term_4)))
+            print("Terms")
+            print(dist_to_nearest_center)
+            print(term_3)
+            print(term_4[:4])
             # TODO: xdot array above
         print(t)
         dadt = self.gamma_alpha*(- alpha + np.tanh(np.linalg.norm(I_ext_f(3,t))))
         # print(0.5*(1+np.tanh(np.linalg.norm(I_ext_f(3,t)))))
         # print(np.linalg.norm(I_ext_f(3,t)))
         drdt_term_usual = alpha*np.multiply(self.gamma_1,(-r + self.beta*np.tanh(self.A@r + self.W_in@I_ext_f(3,t))))
-        # c = 0.0005
-        drdt_term_sst =  (1-alpha)*(term_2 + np.multiply(term_3,term_4))
+        drdt_term_sst =  (1-alpha)*self.c*(term_2 + np.multiply(copy.deepcopy(term_3),copy.deepcopy(term_4)))
         # if self.network_memory_gradient.solutions_array is not None:
         #     print("drdt: "+str(drdt_term_sst[:5]))
         return np.concatenate((np.array([dadt]), drdt_term_usual + drdt_term_sst))
@@ -214,7 +223,7 @@ alpha_initial = 1.0
 
 start_time = time.time()
 state_initial = np.concatenate((np.array([alpha_initial]), np.random.uniform(low=-1, high=1, size=N)))
-t_final = 35
+t_final = 60
 dt = 0.05
 times_array = np.arange(0.0, t_final, dt)
 times_array_cut = np.arange(25, t_final, dt)
@@ -301,6 +310,22 @@ plt.show()
 plt.plot(times_array_cut,np.array(network_PST_noisy.nearest_neighbor_graph_list),linewidth = 0.3)
 plt.title("Nearest neighbors over time")
 plt.ylabel('Stored centers timestep index')
+plt.xlabel('Time')
+plt.plot()
+plt.show()
+
+
+plt.plot(np.array(network_PST_noisy.absolute_distances_over_time_list),linewidth = 0.5)
+plt.title("Absolute Distance from Nearest Center Over Time")
+plt.ylabel('Distance')
+plt.xlabel('Time')
+plt.plot()
+plt.show()
+
+
+plt.plot(np.array(network_PST_noisy.term3times4_list),linewidth = 0.5)
+plt.title("Term 3 * 4")
+plt.ylabel('Product')
 plt.xlabel('Time')
 plt.plot()
 plt.show()
