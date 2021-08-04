@@ -13,7 +13,7 @@ import externally_provided_currents as epc
 import numpy.linalg as LA
 
 
-# random.seed(2021)
+random.seed(2022)
 class memory_gradient():
     def __init__(self, barrier_height_scaling = 1.0, sigma_outer = 1.0):
         self.solutions_list = []
@@ -22,7 +22,6 @@ class memory_gradient():
         self.sigma_outer = sigma_outer # outer wall dropoff rate
 
     def store_trajectory(self, one_trajectory, dt):
-        print("TRAJECTORY HAS SHAPE "+str(np.shape(one_trajectory)))
         # store previous trajectories
         self.solutions_list.append(one_trajectory)
         # turn all x(t) from all trajectories into one array
@@ -40,7 +39,7 @@ class memory_gradient():
                 solutions_array_temp_list.append(x_t)
         # make list into array
         self.solutions_array = np.array(solutions_array_temp_list)
-        print("SHAPE OF SAVED SOLUTIONS IS (SPACE< TIME)")
+        # SHAPE OF SAVED SOLUTIONS IS (SPACE, TIME)
 
         self.xdot_array = np.gradient(self.solutions_array, dt, axis = 1)
 
@@ -64,7 +63,6 @@ def find_nearest_neighbor(set_of_points, new_point):
     :return: index of point in stored_trajectory closest to new_point
     """
     # distance from a third of all trajectory points
-    # print(set_of_points.shape)
     d = LA.norm(set_of_points.transpose() - new_point, axis=1)
     # https://numpy.org/doc/stable/reference/generated/numpy.argmin.html
     ind = np.unravel_index(np.argmin(d, axis=None), d.shape)
@@ -78,14 +76,11 @@ def find_nearest_neighbor_single_neuron(set_of_points, new_point, neighbor_list=
     :return: index of point in stored_trajectory closest to new_point
     """
     # distance from a third of all trajectory points
-    # print(set_of_points.shape)
     # d = LA.norm(set_of_points.transpose() - new_point, axis=1)
-    # print("SHAPE IS " + str(set_of_points.shape))
     transposed_set_of_points = set_of_points.transpose()
     if neighbor_list is None:
         d = LA.norm(set_of_points.transpose() - new_point, axis=1)
     else:
-        # print("NEIGHBOR LIST: " + str(neighbor_list))
         d = np.zeros(transposed_set_of_points.shape)
         for n in range(len(neighbor_list)):  # for all neurons
         # find the nearest neighbor using only that neuron's own neighbors
@@ -117,10 +112,10 @@ class continuous_network():
         self.gamma_alpha = 500#.1 #should be slow compared to network
         self.gamma_2 = 0.005
         self.gamma_3 = 0.4
-        self.gamma_4 = 10
+        self.gamma_4 = 20
         self.c = 1
         self.sigma_past = 0.03#0.001
-        self.sigma_tunnel = 0.1
+        self.sigma_tunnel = 0.2
         self.sigma_tunnel_removal = 2
         self.recall_speedup = 1
 
@@ -140,7 +135,7 @@ class continuous_network():
         term_2 = 0
         term_3 = 0
         term_4 = 0
-        if t>=30 and self.network_memory_gradient.solutions_array is not None:
+        if t>=7 and self.network_memory_gradient.solutions_array is not None:
             diff_vector_list = [] # list of distance vectors for current r(t)
             norm_vector_array = np.empty((self.N)) # array of magnitudes of distance vectors for current r(t)
             unit_vector_list = [ ] # list of unit vectors for current r(t)
@@ -166,15 +161,9 @@ class continuous_network():
             # term_4 = 500*5*np.tanh(-dist_to_nearest_center_per_axis/self.sigma_tunnel)#500*5*(diff_full_network_center/self.sigma_tunnel)**3 *np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel)**4) * (1-0*(dist_to_nearest_center/self.sigma_tunnel)**2)
             self.absolute_distances_over_time_list.append(dist_to_nearest_center)
             self.term3times4_list.append(np.linalg.norm(np.multiply(term_3,term_4)))
-            print("Terms")
-            print(dist_to_nearest_center)
-            print(term_3)
-            print(term_4[:4])
             # TODO: xdot array above
         print(t)
         dadt = self.gamma_alpha*(- alpha + np.tanh(np.linalg.norm(I_ext_f(3,t))))
-        # print(0.5*(1+np.tanh(np.linalg.norm(I_ext_f(3,t)))))
-        # print(np.linalg.norm(I_ext_f(3,t)))
         drdt_term_usual = alpha*np.multiply(self.gamma_1,(-r + self.beta*np.tanh(self.A@r + self.W_in@I_ext_f(3,t))))
         drdt_term_sst =  (1-alpha)*self.c*(term_2 + np.multiply(copy.deepcopy(term_3),copy.deepcopy(term_4)))
         # if self.network_memory_gradient.solutions_array is not None:
@@ -212,8 +201,11 @@ def check_gen_synch(N,state_initial,
     if not gen_synch_exists:
         print("There is NOT perfect gen synch")
 
+#############################
+# Parameters
+#############################
 
-N = 400 # 1000 preferred
+N = 200 # 1000 preferred
 density = 0.03 # network node-to-node
 # gamma = 5*np.power(10.0,np.random.uniform(low= -1, high= 2, size=N))
 gamma = 1
@@ -223,42 +215,24 @@ alpha_initial = 1.0
 
 start_time = time.time()
 state_initial = np.concatenate((np.array([alpha_initial]), np.random.uniform(low=-1, high=1, size=N)))
-t_final = 60
+t_initial = 0
+t_final = 20
+
 dt = 0.05
-times_array = np.arange(0.0, t_final, dt)
-times_array_cut = np.arange(25, t_final, dt)
+t_start_recall = 5
+times_array = np.arange(t_initial, t_final, dt)
 
 network_PST = continuous_network(N, density, input_density, gamma, beta)
-# current_object = epc.I_flat()
-# current_object = epc.I_sine()
-# current_object = epc.L63_object()
-current_object_temp_1 = epc.freeze_time_current_object(epc.L63_object(), (10,20) )
+# current_object_temp_1 = epc.freeze_time_current_object(epc.L63_object(), (10,20) )
+current_object_temp_1 = epc.L63_object()
 current_object_temp_1.prepare_f(times_array)
-current_object_train = epc.multiply_multi_current_object([epc.I_flat_cutoff(cutoff_time=70), current_object_temp_1])
-# current_object = epc.freeze_time_current_object(current_object_temp_2, (90,100) )
-# current_object.prepare_f(times_array)
+# current_object_train = epc.multiply_multi_current_object([epc.I_flat_cutoff(cutoff_time=70), current_object_temp_1])
+current_object_train = current_object_temp_1
 
 
 # check_gen_synch(N,state_initial,times_array,current_object_train.function,network_PST)
 solution = network_PST.run(state_initial, times_array, current_object_train.function) # has a .t and .y member variable
 print("Program took " + str(round(time.time() - start_time, 2)) + " seconds to run.")
-
-
-plt.plot([current_object_train.function(3,t) for t in times_array])
-plt.title("Current used")
-plt.show()
-
-plt.plot(solution.t,solution.y[0].transpose(), linewidth=3, c='r')
-plt.title("Alpha during center test")
-plt.ylim((0,1.1))
-plt.show()
-
-plt.plot(solution.t,solution.y[1:].transpose())
-plt.title("Reservoir Activity (Used for Centers)")
-plt.ylim((-1,1))
-plt.xlim((25,t_final))
-# plt.xlim((times_array_cut[-140],times_array_cut[-1]))
-plt.show()
 
 
 
@@ -267,31 +241,25 @@ plt.show()
 # ============ Testing with memory and noise ==============
 print("Running again with memory gradient and no noise. Testing nearest neighbors.")
 
-times_array_cut = np.arange(29, t_final, dt)
+times_array_cut = np.arange(t_initial, t_final, dt)
 
 # state_initial_noisy = np.concatenate((np.array([alpha_initial]),
 #                                       np.tanh(state_initial[1:] + 0*np.random.uniform(low=-1, high=1, size=N))))
-print((t_final-times_array_cut[0])/0.05)
-state_initial_noisy = solution.y[:,int(-(t_final-times_array_cut[0])/0.05)]
+# state_initial_noisy = solution.y[:,int(t_start_recall/dt)]
+state_initial_noisy = state_initial
 # current_object_noisy = epc.L63_object(noise=0.0) # I usually use noise=1
 # current_object_noisy.prepare_f(times_array)
-current_object_noisy = epc.multiply_multi_current_object([epc.I_flat_cutoff(cutoff_time=30), current_object_train])
+current_object_noisy_temp = epc.multiply_multi_current_object([current_object_train, epc.I_flat_cutoff(cutoff_time=15)])
+current_object_noisy = epc.multiply_multi_current_object([current_object_noisy_temp, epc.I_select_spatial_components(num_dims=3, chosen_dims=[0,1,2])])
 
 network_PST_noisy = copy.deepcopy(network_PST)
 network_PST_noisy.network_memory_gradient.store_trajectory(solution.y[1:], dt)
 solution_with_memory = network_PST_noisy.run(state_initial_noisy, times_array_cut, current_object_noisy.function) # has a .t and .y member variable
 print("Program took " + str(round(time.time() - start_time, 2)) + " seconds to run.")
 
-
-print("Finished!")
-print("SIZE: "+str(solution_with_memory.y.shape))
-plt.plot(solution_with_memory.t,solution_with_memory.y[1:].transpose())
-plt.title("Reservoir Activity (Testing Against Centers)")
-plt.ylim((-1,1))
-plt.xlim((25,t_final))
-plt.show()
-
 print("")
+
+# ============= Find nearest neighbors at all points in time ======================
 
 print(np.shape(solution_with_memory))
 print("Finding nearest neighbors")
@@ -301,6 +269,41 @@ if network_PST_noisy.network_memory_gradient.solutions_array is not None:
         nn = find_nearest_neighbor(network_PST_noisy.network_memory_gradient.solutions_array, state[1:])
         network_PST_noisy.nearest_neighbor_graph_list.append(nn[0])
 print("Program took " + str(round(time.time() - start_time, 2)) + " seconds to run.")
+
+
+
+
+###########################
+# Plotting
+###########################
+
+plt.plot(times_array, [current_object_train.function(3,t) for t in times_array])
+plt.title("Current used to establish centers")
+plt.show()
+
+
+plt.plot(solution.t,solution.y[0].transpose(), linewidth=3, c='r')
+plt.title("Alpha during center test")
+plt.ylim((0,1.1))
+plt.show()
+
+plt.plot(solution.t,solution.y[1:].transpose())
+plt.title("Reservoir Activity (Used for Centers)")
+plt.ylim((-1,1))
+plt.xlim((t_start_recall,t_final))
+# plt.xlim((times_array_cut[-140],times_array_cut[-1]))
+plt.show()
+
+plt.plot(times_array,[current_object_noisy.function(3,t) for t in times_array])
+plt.title("Current used to test recall")
+plt.show()
+
+print("SIZE: "+str(solution_with_memory.y.shape))
+plt.plot(solution_with_memory.t,solution_with_memory.y[1:].transpose())
+plt.title("Reservoir Activity (Testing Against Centers)")
+plt.ylim((-1,1))
+plt.xlim((t_start_recall,t_final))
+plt.show()
 
 plt.plot(solution_with_memory.t,solution_with_memory.y[0].transpose(), linewidth=3, c='r')
 plt.title("Alpha during second test")
@@ -313,7 +316,6 @@ plt.ylabel('Stored centers timestep index')
 plt.xlabel('Time')
 plt.plot()
 plt.show()
-
 
 plt.plot(np.array(network_PST_noisy.absolute_distances_over_time_list),linewidth = 0.5)
 plt.title("Absolute Distance from Nearest Center Over Time")

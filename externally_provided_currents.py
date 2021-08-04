@@ -194,6 +194,23 @@ class I_flat_cutoff_reverse():
             I_ext = np.zeros((N))
         return I_ext
 
+class I_select_spatial_components():
+
+    def __init__(self, num_dims, chosen_dims=[1], I_max=1):
+        self.name = "I_flat_3_and_5_only"
+        self.num_dims = num_dims
+        self.chosen_dims = chosen_dims
+        self.I_max = I_max
+        self.extra_descriptors = ('spatial_dims'+str(self.chosen_dims))
+
+    def function(self, N, t):
+        I_ext = self.I_max * np.zeros((self.num_dims))
+
+        # Make sure the correct neurons (3 and 5) receive stimulus
+        for i in self.chosen_dims:
+            I_ext[i] = 1
+        return I_ext
+
 class I_flat_3_and_5_only():
 
     def __init__(self):
