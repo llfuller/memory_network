@@ -13,7 +13,7 @@ import externally_provided_currents as epc
 import numpy.linalg as LA
 
 
-random.seed(2022)
+# random.seed(2022)
 class memory_gradient():
     def __init__(self, barrier_height_scaling = 1.0, sigma_outer = 1.0):
         self.solutions_list = []
@@ -84,7 +84,6 @@ def find_nearest_neighbor_single_neuron(set_of_points, new_point, neighbor_list=
         d = np.zeros(transposed_set_of_points.shape)
         for n in range(len(neighbor_list)):  # for all neurons
         # find the nearest neighbor using only that neuron's own neighbors
-
             d = LA.norm(transposed_set_of_points[:, neighbor_list] - new_point, axis=1)
     # https://numpy.org/doc/stable/reference/generated/numpy.argmin.html
     ind = np.unravel_index(np.argmin(d, axis=None), d.shape)
@@ -118,6 +117,7 @@ class continuous_network():
         self.sigma_tunnel = 0.2
         self.sigma_tunnel_removal = 2
         self.recall_speedup = 1
+        self.use_local = True
 
         self.R = 1
         self.nearest_neighbor_graph_list = []
@@ -139,25 +139,69 @@ class continuous_network():
             diff_vector_list = [] # list of distance vectors for current r(t)
             norm_vector_array = np.empty((self.N)) # array of magnitudes of distance vectors for current r(t)
             unit_vector_list = [ ] # list of unit vectors for current r(t)
-            gradient_vector_array = np.empty((self.N))# (shape n) list of change recorded for neuron n based on subspace location
-            nearest_center_list = [] # list of vectors for currently nearest centers to nth component of r(t) in neuron n's input subspace
-            for n in range(self.N):
-                time_index_nearest = find_nearest_neighbor_single_neuron(self.network_memory_gradient.solutions_array[[self.presyn_neighbor_list[n]]], r[self.presyn_neighbor_list[n]])
-                nearest_center_list = self.network_memory_gradient.solutions_array[[self.presyn_neighbor_list[n]],
-                                                                                  time_index_nearest]
-                diff_vector_list.append((r[[self.presyn_neighbor_list[n]]] -
-                                         nearest_center_list)[0])
-                norm_vector_array[n] = np.linalg.norm(diff_vector_list[n])
-                unit_vector_list.append(np.divide(diff_vector_list[n],norm_vector_array[n]))
-                gradient_vector_array[n] = self.network_memory_gradient.xdot_array[n,time_index_nearest]
-            # term_2 = self.gamma_2 *  np.multiply(-gradient_vector_array, np.exp(-((norm_vector_array)/self.sigma_past)**2))
-            nearest_center = (self.network_memory_gradient.solutions_array[:,find_nearest_neighbor(self.network_memory_gradient.solutions_array[:], r)])[:,0]
-            diff_full_network_center = (r-nearest_center)
+            gradient_vector_array_local = np.empty((self.N))# (shape n) list of change recorded for neuron n based on subspace location TODO: Maybe make this flexible size
+            gradient_vector_array_nonlocal = np.empty((self.N))# (shape n) list of change recorded for neuron n based on full state space location
+            nearest_center = (self.network_memory_gradient.solutions_array[:,
+                              find_nearest_neighbor(self.network_memory_gradient.solutions_array[:], r)])[:, 0]
+            diff_full_network_center = (r - nearest_center)
             dist_to_nearest_center = np.linalg.norm(np.fabs(diff_full_network_center))
-            dist_to_nearest_center_per_axis = np.sqrt(diff_full_network_center**2)
-            term_2 = self.recall_speedup*np.multiply(gradient_vector_array, dist_to_nearest_center<np.sqrt(self.N*self.sigma_past**2)) #np.sum( np.exp(-((norm_vector_array)/self.sigma_past)**2), axis=1))
-            term_3 = self.gamma_3 * (1+np.tanh(-self.R*np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel_removal)**2)))
-            term_4 = - self.gamma_4 * (diff_full_network_center/self.sigma_tunnel) *np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel)**2) * (1-0*(dist_to_nearest_center/self.sigma_tunnel)**2)
+            dist_to_nearest_center_per_axis = np.fabs(diff_full_network_center)
+
+            if self.use_local:
+                nearest_center_vector_list = []
+                # For one coord given
+                # self.gamma_3 = 1.6
+                # self.sigma_tunnel = 0.35
+                # For three coord given
+                # self.gamma_3 = 5.0 #0.4
+                # self.sigma_tunnel = 0.35 #0.2
+                self.gamma_3 = 1.6
+                self.sigma_tunnel = 0.35
+                self.sigma_past = 0.05
+
+
+                local_displacement = np.empty((self.N))
+                for n in range(self.N):
+                    time_index_nearest_local = find_nearest_neighbor_single_neuron(
+                        self.network_memory_gradient.solutions_array[[self.presyn_neighbor_list[n]]],
+                        r[self.presyn_neighbor_list[n]])
+                    # # list of vectors for currently nearest centers to nth component of r(t) in neuron n's input subspace
+                    nearest_center_vector_list.append(self.network_memory_gradient.solutions_array[[self.presyn_neighbor_list[n]],
+                                                                                       time_index_nearest_local])
+
+                    # r(t)-r(local_center)
+                    local_displacement[n] = r[n] -self.network_memory_gradient.solutions_array[n,time_index_nearest_local]
+
+                    # local subspace vector to center in subspace
+                    diff_vector_list.append((r[[self.presyn_neighbor_list[n]]] -
+                                             nearest_center_vector_list[n])[0])
+                    # diff_vector_arr = np.array(diff_vector_list) # array of the above list
+                    # local subspace distance (cannot take negative values) to center in subspace
+                    norm_vector_array[n] = np.linalg.norm(diff_vector_list[n])
+                    # # local subspace unit vector (can take negative values) to center in subspace
+                    # unit_vector_list.append(np.divide(diff_vector_list[n], norm_vector_array[n]))
+
+                    # gradient experienced by neuron n in its local subspace due to subspace center
+                    gradient_vector_array_local[n] = self.network_memory_gradient.xdot_array[
+                        n, time_index_nearest_local]
+                # Code for local distance measurement to neuron subspace centers
+                # term_2 = self.recall_speedup*np.multiply(gradient_vector_array_local, np.fabs(norm_vector_array)<self.sigma_past) #np.sum( np.exp(-((norm_vector_array)/self.sigma_past)**2), axis=1))
+                term_2 = self.recall_speedup*np.multiply(gradient_vector_array_local, np.exp(-((norm_vector_array)/self.sigma_past)**2))
+                term_3 = self.gamma_3 * (1+np.tanh(-self.R*np.exp(-(norm_vector_array/self.sigma_tunnel_removal)**2)))
+                term_4 = - self.gamma_4 * (local_displacement/self.sigma_tunnel) *np.exp(-(norm_vector_array/self.sigma_tunnel)**2) * (1-0*(dist_to_nearest_center/self.sigma_tunnel)**2)
+            else:
+                for n in range(self.N):
+                    time_index_nearest_nonlocal = find_nearest_neighbor(self.network_memory_gradient.solutions_array, r)
+                    # gradient experienced by neuron n in total state space due to center
+                    gradient_vector_array_nonlocal[n] = self.network_memory_gradient.xdot_array[n,time_index_nearest_nonlocal]
+                # term_2 = self.gamma_2 *  np.multiply(-gradient_vector_array, np.exp(-((norm_vector_array)/self.sigma_past)**2))
+
+                # Code for nonlocal distance measurement to network centers
+                term_2 = self.recall_speedup*np.multiply(gradient_vector_array_nonlocal, dist_to_nearest_center<np.sqrt(self.N*self.sigma_past**2)) #np.sum( np.exp(-((norm_vector_array)/self.sigma_past)**2), axis=1))
+                term_3 = self.gamma_3 * (1+np.tanh(-self.R*np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel_removal)**2)))
+                term_4 = - self.gamma_4 * (diff_full_network_center/self.sigma_tunnel) *np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel)**2) * (1-0*(dist_to_nearest_center/self.sigma_tunnel)**2)
+
+
             # term_4 = 500*5*np.tanh(-dist_to_nearest_center_per_axis/self.sigma_tunnel)#500*5*(diff_full_network_center/self.sigma_tunnel)**3 *np.exp(-(dist_to_nearest_center_per_axis/self.sigma_tunnel)**4) * (1-0*(dist_to_nearest_center/self.sigma_tunnel)**2)
             self.absolute_distances_over_time_list.append(dist_to_nearest_center)
             self.term3times4_list.append(np.linalg.norm(np.multiply(term_3,term_4)))
@@ -205,7 +249,7 @@ def check_gen_synch(N,state_initial,
 # Parameters
 #############################
 
-N = 200 # 1000 preferred
+N = 500 # 1000 preferred
 density = 0.03 # network node-to-node
 # gamma = 5*np.power(10.0,np.random.uniform(low= -1, high= 2, size=N))
 gamma = 1
@@ -216,7 +260,7 @@ alpha_initial = 1.0
 start_time = time.time()
 state_initial = np.concatenate((np.array([alpha_initial]), np.random.uniform(low=-1, high=1, size=N)))
 t_initial = 0
-t_final = 20
+t_final = 30
 
 dt = 0.05
 t_start_recall = 5
@@ -249,8 +293,8 @@ times_array_cut = np.arange(t_initial, t_final, dt)
 state_initial_noisy = state_initial
 # current_object_noisy = epc.L63_object(noise=0.0) # I usually use noise=1
 # current_object_noisy.prepare_f(times_array)
-current_object_noisy_temp = epc.multiply_multi_current_object([current_object_train, epc.I_flat_cutoff(cutoff_time=15)])
-current_object_noisy = epc.multiply_multi_current_object([current_object_noisy_temp, epc.I_select_spatial_components(num_dims=3, chosen_dims=[0,1,2])])
+current_object_noisy_temp = epc.multiply_multi_current_object([current_object_train, epc.I_flat_cutoff(cutoff_time=t_start_recall)])
+current_object_noisy = epc.multiply_multi_current_object([current_object_noisy_temp, epc.I_select_spatial_components(num_dims=3, chosen_dims=[0])])
 
 network_PST_noisy = copy.deepcopy(network_PST)
 network_PST_noisy.network_memory_gradient.store_trajectory(solution.y[1:], dt)
@@ -290,7 +334,7 @@ plt.show()
 plt.plot(solution.t,solution.y[1:].transpose())
 plt.title("Reservoir Activity (Used for Centers)")
 plt.ylim((-1,1))
-plt.xlim((t_start_recall,t_final))
+plt.xlim((t_initial,t_final))
 # plt.xlim((times_array_cut[-140],times_array_cut[-1]))
 plt.show()
 
@@ -302,7 +346,7 @@ print("SIZE: "+str(solution_with_memory.y.shape))
 plt.plot(solution_with_memory.t,solution_with_memory.y[1:].transpose())
 plt.title("Reservoir Activity (Testing Against Centers)")
 plt.ylim((-1,1))
-plt.xlim((t_start_recall,t_final))
+plt.xlim((t_initial,t_final))
 plt.show()
 
 plt.plot(solution_with_memory.t,solution_with_memory.y[0].transpose(), linewidth=3, c='r')

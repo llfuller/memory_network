@@ -69,5 +69,6 @@ def make_raster_plot(N, spike_list, use_STDP, extra_descriptors='',subnetwork_na
     else:
         plt.title('Spike Timings without STDP; '+str(subnetwork_name))
     plt.grid(True, axis='y')
+    plt.xlim((0,1000))
     plt.savefig('plots/Raster_'+str(subnetwork_name)+';STDP='+ str(use_STDP) +';'+ extra_descriptors)
     plt.show()
