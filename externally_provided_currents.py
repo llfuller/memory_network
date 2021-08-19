@@ -2,6 +2,13 @@ import numpy as np
 import scipy
 from scipy.integrate import odeint
 
+
+# audio stuff
+from scipy.fftpack import fft
+from scipy.fftpack import ifft
+import soundfile as sf
+
+
 """
 Each class in this script is a current object.
 """
@@ -311,3 +318,74 @@ class L63_object():
         self.interp_function = scipy.interpolate.interp1d(times_array, self.stored_state.transpose(), kind='cubic')
 
         return states
+
+class wavefile_object():
+    def __init__(self, filename_load, filename_save, noise=0, wanted_num_seconds_length_snippet = 30,
+                 num_timesteps_in_window = 3, magnitude_multiplier = 1, time_scaling = 1,
+                 input_dimension = 3):
+        self.name = "wave_music"
+        self.filename_load = filename_load # string; full path to filename + filename and extension
+        self.filename_save = filename_save # string; full path to filename + filename and extension
+        self.extra_descriptors = ('')
+        self.noise = noise
+        self.wanted_num_seconds_length_snippet = wanted_num_seconds_length_snippet
+        self.rate = None
+        self.num_frames_for_wanted_seconds = None
+        self.framespan = None
+        self.num_timesteps_in_window = input_dimension
+        self.data_channel = None
+        self.interp_function = None
+        self.fft_spectrum_t = None
+        self.recovered_data = None
+
+        self.magnitude_multiplier = magnitude_multiplier
+        self.time_scaling = time_scaling
+        self.input_dimension = input_dimension
+
+    def load_wavefile(self):
+        data, self.rate = sf.read(self.filename_load)
+        num_frames = data.shape[0]
+        seconds_length_song = num_frames / self.rate
+        # rate is frames per second
+        # number of seconds to take from song
+        self.num_frames_for_wanted_seconds = self.wanted_num_seconds_length_snippet * self.rate
+        self.data_channel = data[:self.num_frames_for_wanted_seconds, 0]
+
+    def write_wavefile(self):
+        sf.write(file=self.filename_save, data=self.recovered_data, samplerate=1,
+                 subtype='PCM_16')
+
+    def forward_FFT(self):
+        print("Doing forward FFT")
+        self.fft_spectrum_t = np.zeros((len(self.framespan), self.num_timesteps_in_window))
+        for fr_ind in self.framespan[:-self.num_timesteps_in_window]:  # timewindows
+            # for each timestep, store amplitudes of each frequency occurring over next num_timesteps_in_window
+            temp = fft(self.data_channel[fr_ind: fr_ind + self.num_timesteps_in_window])
+            # print("freqs: "+str(np.fft.rfftfreq(len(temp), d=1./rate)))
+            # print(temp.shape)
+            self.fft_spectrum_t[fr_ind] = temp
+
+    # invert the FFT
+    def inverse_FFT(self, times_array):
+        print("Doing inverse FFT")
+        self.recovered_data = np.zeros((self.data_channel.shape))
+        for fr_ind in self.framespan[:-self.num_timesteps_in_window]:  # timewindows
+            # for each timestep, store amplitudes of each frequency occurring over next num_timesteps_in_window
+            temp = np.max(np.real(ifft(self.fft_spectrum_t[fr_ind])))
+            self.recovered_data[fr_ind] = temp
+
+    def function(self,N,t):
+        return self.magnitude_multiplier * self.interp_function(t/self.time_scaling)
+
+    def prepare_f(self, times_array):
+        """
+        Prepares frequency space data for interpolation.
+        This needs to be run before the function 'function' can be used for this object.
+        :param times_array: array of times at which to produce solution
+        :return: not applicable
+        """
+        t = times_array
+        self.load_wavefile()
+        self.framespan = np.array([fr for fr in range(self.num_frames_for_wanted_seconds)])
+        self.forward_FFT()
+        self.interp_function = scipy.interpolate.interp1d(self.framespan/self.rate, self.fft_spectrum_t.transpose(), kind='cubic')
