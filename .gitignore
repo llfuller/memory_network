@@ -4,3 +4,9 @@
 *.pyc
 *.wav
 *.mp3
+*.npy
+*.npz
+mp3_functions.py
+*.xml
+*.iml
+*.xml

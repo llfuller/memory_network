@@ -2,13 +2,11 @@ import numpy as np
 import scipy
 from scipy.integrate import odeint
 
-
 # audio stuff
 from scipy.fftpack import fft
 from scipy.fftpack import ifft
 import soundfile as sf
 from scipy.signal import spectrogram
-
 import matplotlib.pyplot as plt
 
 
@@ -70,6 +68,41 @@ class sum_multi_current_object():
             max_abs_value = np.amax(np.abs(combined_I_ext))
             combined_I_ext = np.multiply(self.set_max, np.divide(combined_I_ext, max_abs_value))
         return combined_I_ext
+
+class append_multi_current_object():
+    def __init__(self, current_objects_list, current_objs_dims_list):
+        """
+        From two stimuli with N_x and N_y dimensions separately, create a larger stimulus with N_x + N_y dimensions
+        The elements of each of the two input argument lists correspond to each other.
+        Args:
+            current_objects_list (list): list of current objects
+        """
+        self.current_objects_list = current_objects_list
+        self.name = ''
+        for a_current_object in current_objects_list:
+            self.name += a_current_object.name +','
+        self.extra_descriptors = ''
+        for a_current_object in current_objects_list:
+            self.extra_descriptors += a_current_object.extra_descriptors
+        self.extra_descriptors += '_appended'
+        self.current_objs_dims_list = current_objs_dims_list
+
+    def function(self, N, t):
+        combined_I_ext = np.zeros((N))
+        dims_used = 0
+        # check to make sure the sum of all current object dimensions = N before continuing
+        assert np.sum(np.array(self.current_objs_dims_list)) == N
+
+        for ind, a_current_object in enumerate(self.current_objects_list):
+            dims = self.current_objs_dims_list
+            combined_I_ext[dims_used : dims_used + dims[ind]] += np.array(a_current_object.function(self.current_objs_dims_list[ind], t))
+            dims_used += dims[ind]
+        return combined_I_ext
+
+    def prepare_f(self, times_array):
+        for ind, a_current_object in enumerate(self.current_objects_list):
+            if getattr(a_current_object, 'prepare_f') and callable(getattr(a_current_object, 'prepare_f')):
+                a_current_object.prepare_f(times_array)
 
 
 class freeze_time_current_object():
@@ -200,8 +233,6 @@ class I_flat_cutoff_reverse():
         # Shortened current meant to play only later parts of signal, not earlier parts
         I_ext = self.magnitude*np.ones((N))
         if t<self.cutoff_time:
-            # print("Time is "+str(t))
-            # print("Setting all to zero")
             I_ext = np.zeros((N))
         return I_ext
 
@@ -312,16 +343,165 @@ class L63_object():
         t = times_array
 
         states = odeint(self.dfdt, self.state0, t)
-
-        # fig = plt.figure()
-        # ax = fig.gca(projection="3d")
-        # ax.plot(states[:, 0], states[:, 1], states[:, 2])
-        # plt.draw()
-        # plt.show()
         self.stored_state = states
         self.interp_function = scipy.interpolate.interp1d(times_array, self.stored_state.transpose(), kind='cubic')
 
         return states
+
+class L96_object():
+    def __init__(self, dims=6, noise=0):
+        self.name = "I_L96"
+        self.F = 8
+        self.extra_descriptors = ('F=' + str(self.F))
+        self.noise = noise
+        self.stored_state = np.array([])
+        self.interp_function = None
+        self.N = dims
+        self.state0 = self.F * np.ones(self.N)  # Initial state (equilibrium)
+        self.state0[2] += 0.01  # Add small perturbation to 20th variable, default index 19
+
+    def dfdt(self, x, t):
+        """To be used in odeint"""
+        # runs forward in time from 0, cannot just compute at arbitrary t
+        """Lorenz 96 model."""
+        # Compute state derivatives
+        d = np.zeros(self.N)
+        # First the 3 edge cases: i=1,2,N
+        d[0] = (x[1] - x[self.N-2]) * x[self.N-1] - x[0]
+        d[1] = (x[2] - x[self.N-1]) * x[0] - x[1]
+        d[self.N-1] = (x[0] - x[self.N-3]) * x[self.N-2] - x[self.N-1]
+        # Then the general case
+        for i in range(2, self.N-1):
+            d[i] = (x[i+1] - x[i-2]) * x[i-1] - x[i]
+        # Add the forcing term
+        d = d + self.F
+
+        # Return the state derivatives
+        return d
+
+    def function(self,N,t):
+        return self.interp_function(t)
+
+    def prepare_f(self, times_array):
+        """
+        This needs to be run before the function 'function' can be used for this object.
+        :param times_array: array of times at which to produce solution
+        :return: states vector from run at times in times_array
+        """
+        t = times_array
+
+        states = odeint(self.dfdt, self.state0, t)
+        self.stored_state = states
+        self.interp_function = scipy.interpolate.interp1d(times_array, self.stored_state.transpose(), kind='cubic')
+
+
+        return states
+
+class Colpitts_object():
+    def __init__(self, noise=0, amplitude_magnifier = 1):
+        self.name = "I_Colpitts"
+        self.alpha = 5.0
+        self.gamma = 0.08
+        self.q = 0.7
+        self.eta = 6.3
+        self.extra_descriptors = ('alpha=' + str(self.alpha) + ',gamma='+str(self.gamma) +',q='+str(self.q)+','+str(self.eta))
+        self.noise = noise
+        self.stored_state = np.array([])
+        self.interp_function = None
+        self.state0 = np.array([0.1, 0.1, 0.1])
+        self.amplitude_magnifier = amplitude_magnifier
+        # Initial state (equilibrium)
+
+    def dfdt(self, x, t):
+        """To be used in odeint"""
+        # runs forward in time from 0, cannot just compute at arbitrary t
+        """Colpitts model."""
+        # Compute state derivatives
+        x1, x2, x3 = x  # Unpack the state vector
+        return self.alpha * x2, -self.gamma * (x1 + x3) - self.q * x2, self.eta * (x2 + 1 - np.exp(-x1))  # Derivatives
+
+    def function(self,N,t):
+        return self.amplitude_magnifier*self.interp_function(t)
+
+    def prepare_f(self, times_array):
+        """
+        This needs to be run before the function 'function' can be used for this object.
+        :param times_array: array of times at which to produce solution
+        :return: states vector from run at times in times_array
+        """
+        t = times_array
+
+        states = odeint(self.dfdt, self.state0, t)
+        self.stored_state = states
+        self.interp_function = scipy.interpolate.interp1d(times_array, self.stored_state.transpose(), kind='cubic')
+        return states
+
+class NaKL_object():
+    def __init__(self, noise=0, amplitude_magnifier = 1, speedup_factor = 30, I_drive = 10):
+        self.name = "I_NaKL"
+        # NaKL Parameters
+        self.gNa = 120
+        self.ENa = 50
+        self.gK = 20
+        self.EK = -77
+        self.gL = 0.3
+        self.EL = -54.4
+        self.Vm1 = -40.0
+        self.dVm = 15
+        self.taum0 = 0.1
+        self.taum1 = 0.4
+        self.Vh0 = -60
+        self.dVh = -15
+        self.tauh0 = 1
+        self.tauh1 = 7
+        self.Vn1 = -55
+        self.dVn = 30
+        self.taun0 = 1
+        self.taun1 = 5
+        self.extra_descriptors = ('')
+        self.noise = noise
+        self.stored_state = np.array([])
+        self.interp_function = None
+        self.state0 = np.array([-50, 0.4, 0.4, 0.4])
+        self.amplitude_magnifier = amplitude_magnifier = 1
+        self.speedup_factor = speedup_factor
+        self.I_drive = I_drive # driving stimulus
+        # Initial state (equilibrium)
+
+    def dfdt(self, x, t):
+        """To be used in odeint"""
+        # runs forward in time from 0, cannot just compute at arbitrary t
+        """NaKL"""
+        dsdt = np.zeros_like(x)
+        V, m, h, n = x
+
+        # Equations of motion
+        dsdt[0,] = self.gK * n ** 4 * (self.EK - V) + self.gL * (self.EL - V) + \
+                   self.gNa * h * m ** 3 * (self.ENa - V) + self.I_drive
+        dsdt[1,] = (-m + 0.5 * np.tanh((-self.Vm1 + V) / self.dVm) + 0.5) / \
+                   (self.taum0 + self.taum1 * (1 - np.tanh((-self.Vm1 + V) / self.dVm) ** 2))
+        dsdt[2,] = (-h + 0.5 * np.tanh((-self.Vh0 + V) / self.dVh) + 0.5) / \
+                   (self.tauh0 + self.tauh1 * (1 - np.tanh((-self.Vh0 + V) / self.dVh) ** 2))
+        dsdt[3,] = (-n + 0.5 * np.tanh((-self.Vn1 + V) / self.dVn) + 0.5) / \
+                   (self.taun0 + self.taun1 * (1 - np.tanh((-self.Vn1 + V) / self.dVn) ** 2))
+        return self.speedup_factor*dsdt
+
+    def function(self,N,t):
+        return self.amplitude_magnifier*self.interp_function(t)
+
+    def prepare_f(self, times_array):
+        """
+        This needs to be run before the function 'function' can be used for this object.
+        :param times_array: array of times at which to produce solution
+        :return: states vector from run at times in times_array
+        """
+        t = times_array
+
+        states = odeint(self.dfdt, self.state0, t)
+        self.stored_state = states
+        self.interp_function = scipy.interpolate.interp1d(times_array, self.stored_state.transpose(), kind='cubic')
+        return states
+
 
 class wavefile_object():
     def __init__(self, filename_load, filename_save, noise=0, times_array = None,
@@ -363,34 +543,101 @@ class wavefile_object():
         self.t_final = self.times_array[-1]
         self.num_frames_for_wanted_seconds = (self.t_final - self.t_initial) * self.rate
         self.data_channel = self.data[int(self.t_initial*self.rate):int(self.t_final*self.rate), 0]
+        plt.plot(self.data_channel)
+        plt.title("imported data")
+        plt.show()
+
 
     def write_wavefile(self):
-        sf.write(file=self.filename_save, data=self.recovered_data, samplerate=1,
-                 subtype='PCM_16')
+        sf.write(file=self.filename_save, data=self.recovered_data, samplerate=int(self.rate))
 
     def forward_FFT(self):
         print("Doing forward FFT")
         self.fft_spectrum_t = np.zeros((int(self.end_frame - self.start_frame), self.num_frames_in_window))
-        # print("Shape(fft_spectrum_t):"+str(self.fft_spectrum_t.shape))
         for ind in range(int(self.num_frames_for_wanted_seconds-self.num_frames_in_window)):  # timewindows
             # for each timestep, store amplitudes of each frequency occurring over next num_timesteps_in_window
-            # print("Frame index: "+str(ind))
             temp = fft(self.data_channel[ind: ind + self.num_frames_in_window])
-            # print("fr_ind is "+str(ind))
-            # print("temp shape is "+str(temp.shape))
-            # print(temp.shape)
-            # print("freqs: "+str(np.fft.rfftfreq(len(temp), d=1./rate)))
-            # print(temp.shape)
             self.fft_spectrum_t[ind] = temp
 
     # invert the FFT
     def inverse_FFT(self, returned_data):
+        """
+        :param returned_data: has dims (shape of data channel) = (large number,)
+        :return: N/A
+        """
         print("Doing inverse FFT")
-        self.recovered_data = np.zeros((self.data_channel.shape))
-        for fr_ind in self.framespan[:-(self.num_frames_in_window)]:  # timewindows
-            # for each timestep, store amplitudes of each frequency occurring over next num_timesteps_in_window
-            temp = np.max(np.real(ifft(returned_data[fr_ind])))
-            self.recovered_data[fr_ind] = temp
+        self.recovered_data = np.zeros(int(self.num_frames_for_wanted_seconds))
+        self.recovered_data_t_function = np.zeros((np.shape(returned_data)[1]))
+        # recovered_data has dims (shape of data channel) = (large number,)
+        returned_data /= np.max(np.fabs(returned_data)) # normalize returned data so no nans appear from arctanh
+        t_ind_in_window = np.shape(returned_data)[0] # same as number of frequencies
+        for t_ind, t in enumerate(self.times_array[:-1]):  # timewindows
+            # temp_1 = (-1 +np.power(10,np.arctanh(returned_data[:,t_ind])))#:t_ind+int(self.num_frames_in_window/self.rate)]))
+            temp_1 = np.arctanh(returned_data[:,t_ind])#:t_ind+int(self.num_frames_in_window/self.rate)]))
+            temp_2 = ifft(temp_1.flatten())
+            self.recovered_data_t_function[t_ind] = np.real(np.sum(temp_2))
+            # self.recovered_data_t_function[t_ind] = np.max(np.real(temp_2))
+        # self.recovered_data_t_function = np.max(np.real(ifft(-1 +np.power(10,np.arctanh(returned_data)), axis=0)))
+        print("Finished inverse FFT")
+        print("Removing infinities")
+        self.recovered_data_t_function = np.where(np.isinf(self.recovered_data_t_function), 0, self.recovered_data_t_function)
+        self.recovered_data_t_function = np.where(np.isnan(self.recovered_data_t_function), 0, self.recovered_data_t_function)
+
+        # Remove all elements more than 3 std devs away from median
+        self.recovered_data_t_function[self.recovered_data_t_function > np.median(self.recovered_data_t_function) + 4*np.std(self.recovered_data_t_function)] = 0
+        self.recovered_data_t_function[:2500] = 0
+        print(self.recovered_data_t_function)
+        #normalization
+        self.recovered_data_t_function /= np.max(self.recovered_data_t_function)
+        print("Plotting recovered data")
+        plt.plot(self.recovered_data_t_function)
+        plt.ylim((-1,1))
+        plt.title("recovered_data")
+        plt.show()
+        recovered_data_interp_function = scipy.interpolate.interp1d(self.times_array,
+                                                                         self.recovered_data_t_function,
+                                                                         kind='cubic')
+        print("Saving recovered data in frames so that it can be written to wavefile.")
+        for fr_ind, fr in enumerate(range(int(self.num_frames_for_wanted_seconds))):
+            self.recovered_data[fr_ind] = recovered_data_interp_function(fr/self.rate)
+
+
+    # def inverse_FFT(self, returned_data):
+    #     print("Doing inverse FFT")
+    #     self.recovered_data = np.zeros(int(self.num_frames_for_wanted_seconds))
+    #     # returned_data data has dims (freqs, timesteps)
+    #     self.recovered_data_t_function = np.zeros((np.shape(returned_data)[1]), dtype=complex)
+    #     # recovered_data has dims (shape of data channel) = (large number,)
+    #     print(returned_data.shape)
+    #     num_tsteps_in_window = self.num_frames_in_window
+    #     returned_data /= np.max(np.fabs(returned_data))
+    #     print(returned_data)
+    #     t_ind_in_window = np.shape(returned_data)[0] # same as number of frequencies
+    #     for t_ind, t in enumerate(self.times_array[:-t_ind_in_window]):  # timewindows
+    #         # for each timestep, store amplitudes of each frequency occurring over next num_timesteps_in_window
+    #         # normalize returned data so no nans appear from arctanh
+    #         # returned_data -= 0.0000000001 # subtract tiny number to account for numerical closeness to 1 of max
+    #         temp_1 = (-1 +np.power(10,np.arctanh(returned_data[:,t_ind])))#:t_ind+int(self.num_frames_in_window/self.rate)]))
+    #         # temp_1 = returned_data[:,t_ind]#:t_ind+int(self.num_frames_in_window/self.rate)]))
+    #         # print("Shape of temp_1:"+str(temp_1.shape))
+    #         # temp_2 = np.max(np.real(ifft(temp_1.flatten())))
+    #         temp_2 = ifft(temp_1.flatten())
+    #         # print(temp_2)
+    #         # print("SHape of temp_2: "+str(temp_2.shape))
+    #         self.recovered_data_t_function[t_ind : t_ind + t_ind_in_window] += temp_2
+    #     recovered_data_t_function_real = np.real(self.recovered_data_t_function)
+    #     recovered_data_t_function_real = recovered_data_t_function_real/np.max(recovered_data_t_function_real[1000:])
+    #     # self.recovered_data[self.recovered_data > np.max(self.recovered_data_t_function[1000:])] = 0
+    #
+    #     plt.plot(recovered_data_t_function_real)
+    #     plt.ylim((-1,1))
+    #     plt.title("recovered_data")
+    #     plt.show()
+    #     recovered_data_interp_function = scipy.interpolate.interp1d(self.times_array,
+    #                                                                      recovered_data_t_function_real,
+    #                                                                      kind='cubic')
+    #     for fr_ind, fr in enumerate(range(int(self.num_frames_for_wanted_seconds))):
+    #         self.recovered_data[fr_ind] = recovered_data_interp_function(fr/self.rate)
 
     def function(self,N,t):
         # print("eval for t="+str(t))
@@ -403,6 +650,7 @@ class wavefile_object():
         :param times_array: array of times at which to produce solution
         :return: not applicable
         """
+        print("Preparing function "+str(self.name))
         t = times_array
         self.load_wavefile()
         self.start_frame = int(times_array[0] * self.rate) # frame corresponding to first time in times_array
@@ -417,31 +665,31 @@ class wavefile_object():
         f, self.t, self.Sxx = spectrogram(self.data[:self.end_frame, 0], fs=1, nperseg=int(self.rate / self.rate_seg_div),
                                 noverlap=int(self.rate / self.rate_seg_div * 9.5 / 10))
 
-        print(self.Sxx.shape)
-        print(self.t.shape)
+        print("Sxx shape: "+str(self.Sxx.shape))
+        print("f shape: "+str(f.shape))
+        print()
+        # print(self.t.shape)
 
-        plt.pcolormesh(self.t / self.rate, f, np.log10(self.Sxx), shading='gouraud')
-        plt.ylabel('Frequency [Hz]')
-        plt.xlabel('Time [sec]')
-        plt.show()
-
-        print("See shapes here:")
-        print(np.concatenate((np.array([0]),self.t)).shape)
-        # print(np.concatenate((np.zeros(self.Sxx.shape[0]),self.Sxx))[self.Sxx.shape[0]//self.input_dimension].transpose().shape)
-        print(np.vstack((np.zeros(self.Sxx.shape[0]),self.Sxx.transpose())).shape)
+        # print("Making plot")
+        # plt.pcolormesh(self.t / self.rate, f, np.log10(self.Sxx), shading='gouraud')
+        # plt.ylabel('Frequency [Hz]')
+        # plt.xlabel('Time [sec]')
+        # plt.show()
 
         index_spacing = self.Sxx.shape[0]//self.input_dimension
+        print("Frequency index spacing is "+str(index_spacing))
         list_of_indices = [i*index_spacing for i in range(self.input_dimension)]
         # Ensure spatial length is correct
         assert np.zeros(self.Sxx.shape[0])[list_of_indices].shape[0] == self.input_dimension
-
+        print("Making a and b matrices")
         a = np.concatenate((np.array([0]),self.t/self.rate, self.end_frame*np.array([1])))
         b = np.vstack((np.zeros(self.Sxx.shape[0]),
                        self.Sxx.transpose(),
                        np.zeros(self.Sxx.shape[0]) ))[:,list_of_indices].transpose()
 
-        # self.forward_FFT()
-        # self.interp_function = scipy.interpolate.interp1d(self.framespan/self.rate, self.fft_spectrum_t.transpose(), kind='cubic')
+        print("Making interpolation function")
         self.interp_function = scipy.interpolate.interp1d(a,
-                                                          np.log10(np.fabs(b)+1),
+                                                          np.tanh(b),
                                                           kind='cubic') #TODO: Use tanh(log10())
+                                                        # np.tanh(np.log10(np.fabs(b)+1)),
+                                                        # kind='cubic') #TODO: Use tanh(log10())
