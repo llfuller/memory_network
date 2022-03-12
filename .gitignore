@@ -10,3 +10,5 @@ mp3_functions.py
 *.xml
 *.iml
 *.xml
+.idea/workspace.xml
+.idea/.name

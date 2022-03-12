@@ -528,7 +528,7 @@ class wavefile_object():
         self.end_frame = None # Warning, this is a larger integer than you'd expect, because it needs to be large enough
         # for interpolation of the function to work over the whole integration interval (t_initial, t_final)
 
-        self.rate_seg_div = 10
+        self.rate_seg_div = 30
         self.magnitude_multiplier = magnitude_multiplier
         self.time_scaling = time_scaling
         self.input_dimension = input_dimension
@@ -585,65 +585,7 @@ class wavefile_object():
 
         # Remove all elements more than 3 std devs away from median
         self.recovered_data_t_function[self.recovered_data_t_function > np.median(self.recovered_data_t_function) + 4*np.std(self.recovered_data_t_function)] = 0
-        # self.recovered_data_t_function[:2500] = 0
-        print(self.recovered_data_t_function)
-        #normalization
-        self.recovered_data_t_function /= np.max(self.recovered_data_t_function)
-        print("Plotting recovered data")
-        plt.plot(self.recovered_data_t_function)
-        plt.ylim((-1,1))
-        plt.title("recovered_data")
-        plt.show()
-        recovered_data_interp_function = scipy.interpolate.interp1d(self.times_array,
-                                                                    self.recovered_data_t_function,
-                                                                    kind='cubic',
-                                                                    bounds_error=False,
-                                                                    fill_value='extrapolate',
-                                                                    assume_sorted='True')
-        print("Saving recovered data in frames so that it can be written to wavefile.")
-        for fr_ind, fr in enumerate(range(int(self.num_frames_for_wanted_seconds))):
-            self.recovered_data[fr_ind] = recovered_data_interp_function(fr/self.rate)
-
-        # remove last second of audio just because it seems to be problematic for some reason I don't understand
-        self.recovered_data[-1000:] = 0
-
-        # Remove overly large values from final array
-        self.recovered_data[self.recovered_data > np.median(self.recovered_data) + 3*np.std(self.recovered_data)] = 0
-
-        # Renormalize final array so that remaining data is of reasonable amplitude
-        self.recovered_data /= np.max(self.recovered_data)
-
-
-    # invert the FFT
-    def inverse_FFT_ntime(self, returned_data):
-        """
-        :param returned_data: has dims (shape of data channel) = (large number,)
-        :return: N/A
-        """
-        print("Doing inverse FFT")
-        self.recovered_data = np.zeros(int(self.num_frames_for_wanted_seconds))
-        self.recovered_data_t_function = np.zeros((np.shape(returned_data)[1]), dtype=complex)
-        # recovered_data has dims (shape of data channel) = (large number,)
-        returned_data /= np.max(np.fabs(returned_data)) # normalize returned data so no nans appear from arctanh
-        t_ind_in_window = np.shape(returned_data)[0] # same as number of frequencies
-        print("t_ind_in_window: "+str(t_ind_in_window))
-        for t_ind, t in enumerate((self.times_array[:-1])[:-t_ind_in_window]):  # timewindows
-            # temp_1 = (-1 +np.power(10,np.arctanh(returned_data[:,t_ind])))#:t_ind+int(self.num_frames_in_window/self.rate)]))
-            temp_1 = np.arctanh(returned_data[:,t_ind])#:t_ind+int(self.num_frames_in_window/self.rate)]))
-            temp_2 = ifft(temp_1.flatten())
-            self.recovered_data_t_function[t_ind: t_ind+t_ind_in_window] += (temp_2)
-            # self.recovered_data_t_function[t_ind] = np.max(np.real(temp_2))
-        # self.recovered_data_t_function = np.max(np.real(ifft(-1 +np.power(10,np.arctanh(returned_data)), axis=0)))
-        print("Finished inverse FFT")
-        print("Removing infinities")
-        self.recovered_data_t_function = np.where(np.isinf(self.recovered_data_t_function), 0, self.recovered_data_t_function)
-        self.recovered_data_t_function = np.where(np.isnan(self.recovered_data_t_function), 0, self.recovered_data_t_function)
-
-        # Remove all elements more than 3 std devs away from median
-        self.recovered_data_t_function[np.fabs(self.recovered_data_t_function) > np.median(self.recovered_data_t_function) + 3*np.std(self.recovered_data_t_function)] \
-            = np.median(self.recovered_data_t_function) + 1 * np.std(self.recovered_data_t_function)
         self.recovered_data_t_function[:2500] = 0
-        # self.recovered_data_t_function[-2500:] = 0
         print(self.recovered_data_t_function)
         #normalization
         self.recovered_data_t_function /= np.max(self.recovered_data_t_function)
@@ -653,18 +595,49 @@ class wavefile_object():
         plt.title("recovered_data")
         plt.show()
         recovered_data_interp_function = scipy.interpolate.interp1d(self.times_array,
-                                                                         np.real(self.recovered_data_t_function),
+                                                                         self.recovered_data_t_function,
                                                                          kind='cubic')
         print("Saving recovered data in frames so that it can be written to wavefile.")
         for fr_ind, fr in enumerate(range(int(self.num_frames_for_wanted_seconds))):
             self.recovered_data[fr_ind] = recovered_data_interp_function(fr/self.rate)
-        # self.recovered_data[-200:] = 0
-        # Remove overly large values from final array
-        self.recovered_data[np.fabs(self.recovered_data) > np.median(self.recovered_data) + 3*np.std(self.recovered_data)] = \
-            np.median(self.recovered_data) + 1*np.std(self.recovered_data)
 
-        # Renormalize final array so that remaining data is of reasonable amplitude
-        self.recovered_data /= np.max(self.recovered_data)
+
+    # def inverse_FFT(self, returned_data):
+    #     print("Doing inverse FFT")
+    #     self.recovered_data = np.zeros(int(self.num_frames_for_wanted_seconds))
+    #     # returned_data data has dims (freqs, timesteps)
+    #     self.recovered_data_t_function = np.zeros((np.shape(returned_data)[1]), dtype=complex)
+    #     # recovered_data has dims (shape of data channel) = (large number,)
+    #     print(returned_data.shape)
+    #     num_tsteps_in_window = self.num_frames_in_window
+    #     returned_data /= np.max(np.fabs(returned_data))
+    #     print(returned_data)
+    #     t_ind_in_window = np.shape(returned_data)[0] # same as number of frequencies
+    #     for t_ind, t in enumerate(self.times_array[:-t_ind_in_window]):  # timewindows
+    #         # for each timestep, store amplitudes of each frequency occurring over next num_timesteps_in_window
+    #         # normalize returned data so no nans appear from arctanh
+    #         # returned_data -= 0.0000000001 # subtract tiny number to account for numerical closeness to 1 of max
+    #         temp_1 = (-1 +np.power(10,np.arctanh(returned_data[:,t_ind])))#:t_ind+int(self.num_frames_in_window/self.rate)]))
+    #         # temp_1 = returned_data[:,t_ind]#:t_ind+int(self.num_frames_in_window/self.rate)]))
+    #         # print("Shape of temp_1:"+str(temp_1.shape))
+    #         # temp_2 = np.max(np.real(ifft(temp_1.flatten())))
+    #         temp_2 = ifft(temp_1.flatten())
+    #         # print(temp_2)
+    #         # print("SHape of temp_2: "+str(temp_2.shape))
+    #         self.recovered_data_t_function[t_ind : t_ind + t_ind_in_window] += temp_2
+    #     recovered_data_t_function_real = np.real(self.recovered_data_t_function)
+    #     recovered_data_t_function_real = recovered_data_t_function_real/np.max(recovered_data_t_function_real[1000:])
+    #     # self.recovered_data[self.recovered_data > np.max(self.recovered_data_t_function[1000:])] = 0
+    #
+    #     plt.plot(recovered_data_t_function_real)
+    #     plt.ylim((-1,1))
+    #     plt.title("recovered_data")
+    #     plt.show()
+    #     recovered_data_interp_function = scipy.interpolate.interp1d(self.times_array,
+    #                                                                      recovered_data_t_function_real,
+    #                                                                      kind='cubic')
+    #     for fr_ind, fr in enumerate(range(int(self.num_frames_for_wanted_seconds))):
+    #         self.recovered_data[fr_ind] = recovered_data_interp_function(fr/self.rate)
 
     def function(self,N,t):
         # print("eval for t="+str(t))
@@ -689,8 +662,8 @@ class wavefile_object():
         # self.framespan = np.array([fr for fr in range(self.num_frames_for_wanted_seconds)])
         print(self.framespan/self.rate)
 
-        f, self.t, self.Sxx = spectrogram(self.data[:self.end_frame, 0], fs=1, nperseg=int(self.rate/self.rate_seg_div),
-                                noverlap=int(self.rate/self.rate_seg_div*9.5/10))
+        f, self.t, self.Sxx = spectrogram(self.data[:self.end_frame, 0], fs=1, nperseg=int(self.rate / self.rate_seg_div),
+                                noverlap=int(self.rate / self.rate_seg_div * 9.5 / 10))
 
         print("Sxx shape: "+str(self.Sxx.shape))
         print("f shape: "+str(f.shape))
@@ -717,9 +690,8 @@ class wavefile_object():
         print("Making interpolation function")
         self.interp_function = scipy.interpolate.interp1d(a,
                                                           np.tanh(b),
-                                                          kind='cubic',
-                                                          bounds_error=False,
-                                                          fill_value='extrapolate',
-                                                          assume_sorted='True') #TODO: Use tanh(log10())
+                                                          kind='cubic') #TODO: Use tanh(log10())
                                                         # np.tanh(np.log10(np.fabs(b)+1)),
                                                         # kind='cubic') #TODO: Use tanh(log10())
+
+

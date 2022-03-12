@@ -382,7 +382,7 @@ current_object_train = current_object_temp_1
 
 current_used_to_establish_centers_against_time_array = np.array([current_object_train.function(input_dimension,t) for t in times_array])
 
-if 0:
+if 1:
     print("Building network object")
     network_PST = continuous_network(N, density, input_density, gamma, beta, input_dimension)
 
@@ -468,7 +468,7 @@ if 0:
     # # current_object_noisy = epc.L63_object(noise=0.0) # I usually use noise=1
     # # current_object_noisy.prepare_f(times_array)
     current_object_noisy_temp = epc.multiply_multi_current_object([current_object_train, epc.I_flat_cutoff(cutoff_time=t_start_recall)])
-    current_object_noisy = epc.multiply_multi_current_object([current_object_noisy_temp, epc.I_select_spatial_components(num_dims=input_dimension, chosen_dims=np.array(range(input_dimension))[-3:])])
+    current_object_noisy = epc.multiply_multi_current_object([current_object_noisy_temp, epc.I_select_spatial_components(num_dims=input_dimension, chosen_dims=np.array(range(input_dimension))[:])])
     # #TODO: Use time normalized derivative?
     network_PST_noisy = copy.deepcopy(network_PST)
     network_PST_noisy.network_memory_gradient.store_trajectory(solution.y[1:], dt)
@@ -555,8 +555,8 @@ if 0:
     # np.save("data_continuous/song+Colpitts_nearest_neighbor_graph_list.npy",network_PST_noisy.nearest_neighbor_graph_list)
     # np.save("data_continuous/song+Colpitts_absolute_distances_over_time_list.npy",network_PST_noisy.absolute_distances_over_time_list)
     # current_object_temp_1a.inverse_FFT(((current_used_to_establish_centers_against_time_array)[:,:-3]).transpose())
-    # current_object_temp_1a.inverse_FFT((W_out@solution_with_memory.y[1:])[:-3])
-current_object_temp_1a.inverse_FFT((current_used_to_establish_centers_against_time_array.T)[:-3])
+    current_object_temp_1a.inverse_FFT((W_out@solution_with_memory.y[1:])[:-3])
+# current_object_temp_1a.inverse_FFT((current_used_to_establish_centers_against_time_array.T)[:-3])
 
 # # write music to file and play
 mixer.init()

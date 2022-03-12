@@ -5,7 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="16eb0111-e01e-4d19-8554-ca6f110a7195" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/memory_network.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/memory_network.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/continuous_PST.py" beforeDir="false" afterPath="$PROJECT_DIR$/continuous_PST.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/externally_provided_currents.py" beforeDir="false" afterPath="$PROJECT_DIR$/externally_provided_currents.py" afterDir="false" />
@@ -34,6 +33,12 @@
       <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
     </file-type-list>
   </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$USER_HOME$/.conda/envs/memory_network/Lib/site-packages/soundfile.py" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/continuous_PST.py" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/mp3_functions.py" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/externally_provided_currents.py" root0="FORCE_HIGHLIGHTING" />
+  </component>
   <component name="ProjectId" id="1qtzrezO4aT507CLuLQhZ2nw1oK" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -43,6 +48,7 @@
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="com.intellij.ide.scratch.LRUPopupBuilder$1/New Scratch File" value="JupyterPython" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
@@ -82,6 +88,9 @@
       <module name="memory_network" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
       <option name="SDK_HOME" value="C:\Users\Lawson\.conda\envs\memory_network\python.exe" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="false" />
@@ -268,7 +277,13 @@
       <workItem from="1631865854275" duration="14440000" />
       <workItem from="1632041742668" duration="8261000" />
       <workItem from="1632194501952" duration="6220000" />
-      <workItem from="1632213062212" duration="2240000" />
+      <workItem from="1632213062212" duration="8033000" />
+      <workItem from="1632390653126" duration="5437000" />
+      <workItem from="1632547523688" duration="610000" />
+      <workItem from="1632567877921" duration="3892000" />
+      <workItem from="1638893274671" duration="2133000" />
+      <workItem from="1639618580055" duration="1706000" />
+      <workItem from="1647042199020" duration="2405000" />
     </task>
     <servers />
   </component>
